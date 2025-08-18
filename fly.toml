@@ -2,8 +2,8 @@ app = "lucky-compass-backend"
 primary_region = "ord"
 
 [build]
-  [build.args]
-    PYTHON_VERSION = "3.9"
+  builder = "heroku/buildpacks:20"
+  buildpacks = ["heroku/python"]
 
 [env]
   PORT = "8080"
