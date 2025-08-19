@@ -2,12 +2,11 @@ app = "lucky-compass-backend"
 primary_region = "ord"
 
 [build]
-  builder = "heroku/buildpacks:20"
+  builder = "heroku/builder:24"
   buildpacks = ["heroku/python"]
 
 [env]
   PORT = "8080"
-  ALLOW_EOL_SHIMMED_BUILDER = "1"
   HTTP_PROXY = ""
   HTTPS_PROXY = ""
   PIP_INDEX_URL = "https://mirrors.aliyun.com/pypi/simple/"
