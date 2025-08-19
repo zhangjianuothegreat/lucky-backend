@@ -2,12 +2,11 @@ app = "lucky-compass-backend"
 primary_region = "ord"
 
 [build]
-  builder = "heroku/buildpacks:20"
+  builder = "heroku/builder:22"
   buildpacks = ["heroku/python"]
 
 [env]
   PORT = "8080"
-  ALLOW_EOL_SHIMMED_BUILDER = "1"  # 临时允许旧 buildpack
 
 [http_service]
   internal_port = 8080
