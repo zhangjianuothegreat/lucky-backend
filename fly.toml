@@ -9,7 +9,7 @@ primary_region = "ord"
   PORT = "8080"
   HTTP_PROXY = ""
   HTTPS_PROXY = ""
-  PIP_INDEX_URL = "https://mirrors.aliyun.com/pypi/simple/"
+  PIP_INDEX_URL = "https://mirrors.huaweicloud.com/pypi/simple/"
 
 [http_service]
   internal_port = 8080
