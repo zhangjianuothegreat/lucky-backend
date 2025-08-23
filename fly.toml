@@ -5,6 +5,9 @@ primary_region = "ord"
   builder = "heroku/builder:24"
   buildpacks = ["heroku/python"]
 
+[build.args]
+  BUILD_COMMAND = "./build.sh"
+
 [env]
   PORT = "8080"
   HTTP_PROXY = ""
