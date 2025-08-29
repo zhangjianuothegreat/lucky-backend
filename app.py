@@ -1,3 +1,8 @@
+import logging
+logging.basicConfig(level=logging.DEBUG)
+gunicorn_logger = logging.getLogger('gunicorn')
+gunicorn_logger.setLevel(logging.DEBUG)
+
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lunar_python import Solar, Lunar
@@ -82,11 +87,10 @@ def calculate():
         relation = element_relations[element]
         direction = joy_direction.split(' ')[0]
         direction_english = direction_mapping[direction]
-        element_english = relation['produced_by']
         explanation = f"Your Day Master is {element}. {element_english} supports {element}, so your lucky direction is {direction_english}."
         
         return jsonify({
-            'lunar_date': f"{lunar.getYear()}-{lunar.getMonth()}-{lunar.getDay()}",
+            'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi': ' '.join(bazi),
             'day_master': heavenly_stems[day_master],
             'element': element,
