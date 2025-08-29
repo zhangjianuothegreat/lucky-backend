@@ -1,23 +1,28 @@
 app = "lucky-compass-backend"
 primary_region = "sjc"
+
 [build]
   dockerfile = "Dockerfile"
+
 [env]
   PORT = "8080"
   HTTP_PROXY = ""
   HTTPS_PROXY = ""
   PIP_INDEX_URL = "https://mirrors.aliyun.com/pypi/simple/"
+
 [http_service]
   internal_port = 8080
   force_https = true
   auto_stop_machines = false
   auto_start_machines = true
   min_machines_running = 1
+  processes = ["app"]
   [[http_service.checks]]
-    interval = "15s"  # 降低频率
-    timeout = "5s"    # 增加超时
-    grace_period = "10s"  # 增加宽限期
+    interval = "15s"
+    timeout = "5s"
+    grace_period = "10s"
     method = "GET"
     path = "/calculate?year=1984&month=5&day=10"
+
 [processes]
   app = "gunicorn --bind :8080 --workers 2 --log-level debug app:app"
