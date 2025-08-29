@@ -10,6 +10,11 @@ from lunar_python import Solar, Lunar
 app = Flask(__name__)
 CORS(app)  # Enable CORS for cross-origin requests
 
+# 健康检查端点
+@app.route('/health', methods=['GET'])
+def health():
+    return jsonify({'status': 'ok'}), 200
+
 # Heavenly Stems (English mapping)
 heavenly_stems = {
     '甲': 'Jia', '乙': 'Yi', '丙': 'Bing', '丁': 'Ding', 
@@ -87,7 +92,8 @@ def calculate():
         relation = element_relations[element]
         direction = joy_direction.split(' ')[0]
         direction_english = direction_mapping[direction]
-        explanation = f"Your Day Master is {element}. {element_english} supports {element}, so your lucky direction is {direction_english}."
+        # 修复了原代码中未定义的element_english变量，使用element替代
+        explanation = f"Your Day Master is {element}. {relation['produced_by']} supports {element}, so your lucky direction is {direction_english}."
         
         return jsonify({
             'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
