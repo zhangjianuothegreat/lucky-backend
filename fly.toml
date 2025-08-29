@@ -19,10 +19,10 @@ primary_region = "sjc"
   processes = ["app"]
   [[http_service.checks]]
     interval = "15s"
-    timeout = "5s"
+    timeout = "2s"  # 缩短超时，/health 响应更快
     grace_period = "10s"
     method = "GET"
-    path = "/calculate?year=1984&month=5&day=10"
+    path = "/health"
 
 [processes]
   app = "gunicorn --bind :8080 --workers 2 --log-level debug app:app"
