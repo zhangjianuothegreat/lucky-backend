@@ -5,11 +5,11 @@ gunicorn_logger.setLevel(logging.DEBUG)
 
 from flask import Flask, jsonify, request
 from flask_cors import CORS
-from lunar_python import Solar, Lunar  # 确认导入正确
-from datetime import datetime  # 提前导入datetime，避免重复导入
+from lunar_python import Solar, Lunar
+from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for cross-origin requests
+CORS(app)
 
 # 健康检查端点
 @app.route('/health', methods=['GET'])
@@ -59,7 +59,7 @@ def get_pillar_explanation(gan_element, zhi_element):
     adj2 = element_adjectives[zhi_element]
     return f"{gan_element} meets {zhi_element}, a celestial blend of {adj1} and {adj2}."
 
-# Joy Directions based on Five Elements with angles (保持Metal为145°)
+# Joy Directions based on Five Elements with angles
 joy_directions = {
     'Wood': {'joy': 'North (Water)', 'angle': 0},
     'Fire': {'joy': 'East (Wood)', 'angle': 90},
@@ -68,32 +68,32 @@ joy_directions = {
     'Water': {'joy': 'West (Metal)', 'angle': 270}
 }
 
-# 八字计算端点（核心逻辑修改）
+# 八字计算端点
 @app.route('/calculate', methods=['GET'])
 def calculate():
-    # 记录请求参数日志
     received_year = request.args.get('year')
     received_month = request.args.get('month')
     received_day = request.args.get('day')
-    received_hour = request.args.get('hour')  # 可选参数
-    received_minute = request.args.get('minute')  # 可选参数
-    received_timezone = request.args.get('timezone', '8')  # 默认东八区
+    received_hour = request.args.get('hour')
+    received_minute = request.args.get('minute')
+    received_timezone = request.args.get('timezone', '8')
+    
     gunicorn_logger.debug(
         f"Received GET /calculate with params: year={received_year}, month={received_month}, day={received_day}, "
         f"hour={received_hour}, minute={received_minute}, timezone={received_timezone}"
     )
 
     try:
-        # 参数校验 - 核心字段（严格校验非空和数值类型）
+        # 参数校验
         if not (received_year and received_month and received_day):
             error_msg = 'Missing required parameters: year, month, or day cannot be empty'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
             return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
         
-        # 转换为整数并校验范围
         year = int(received_year)
         month = int(received_month)
         day = int(received_day)
+        
         if year < 1900 or year > 2024:
             error_msg = 'Year must be between 1900 and 2024'
             return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
@@ -104,15 +104,15 @@ def calculate():
             error_msg = 'Day must be between 1 and 31'
             return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
 
-        # 验证日期有效性（处理2月、30天月份等异常）
+        # 验证日期有效性
         try:
             datetime(year, month, day)
         except ValueError as e:
-            error_msg = f'Invalid date: {str(e)} (e.g., February has no 30th day)'
+            error_msg = f'Invalid date: {str(e)}'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
             return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
 
-        # 处理可选的时间参数（仅校验格式，不影响测算）
+        # 处理可选的时间参数
         hour = None
         minute = None
         if received_hour:
@@ -132,33 +132,29 @@ def calculate():
                 error_msg = f'Invalid minute: {str(e)}'
                 return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
 
-        # --------------------------
-        # 关键修改：lunar-python 最新版API调用
-        # --------------------------
-        # 1. 正确创建公历对象（旧版本可能支持 Solar(year, month, day)，新版本需用 fromYmd 静态方法）
+        # 创建公历对象并转换为农历
         solar = Solar.fromYmd(year, month, day)
-        # 2. 转换为农历对象（确保获取到有效的农历数据）
         lunar = solar.getLunar()
         if not lunar:
-            raise ValueError("Failed to convert solar date to lunar date (invalid date range?)")
+            raise ValueError("Failed to convert solar date to lunar date")
         
-        # 日志输出农历信息（便于调试）
         lunar_year = lunar.getYear()
         lunar_month = lunar.getMonth()
         lunar_day = lunar.getDay()
+        
         gunicorn_logger.debug(
             f"/calculate solar to lunar success: solar={year}-{month:02d}-{day:02d}, "
-            f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d} (leap={lunar.isLeap()})"
+            f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
         )
 
-        # 3. 获取八字（三柱：年、月、日）- 最新版 getEightChar() 无变更，但需校验返回值
+        # 获取八字
         ba = lunar.getEightChar()
         if not ba:
             raise ValueError("Failed to get Eight Characters (BaZi) from lunar date")
         
-        # 提取天干地支（确保不为空，避免KeyError）
         gans = [ba.getYearGan(), ba.getMonthGan(), ba.getDayGan()]
         zhis = [ba.getYearZhi(), ba.getMonthZhi(), ba.getDayZhi()]
+        
         for i, (gan, zhi) in enumerate(zip(gans, zhis)):
             if not gan or not zhi:
                 raise ValueError(f"Invalid BaZi component at index {i}: gan={gan}, zhi={zhi}")
@@ -167,87 +163,84 @@ def calculate():
         bazi = [f"{heavenly_stems[gan]}{earthly_branches[zhi]}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        # --------------------------
-        # 核心修复：柱解释生成（添加强校验+异常捕获+默认值）
-        # --------------------------
+        # 生成柱解释 - 关键修复部分
         pillar_explanations = []
-        try:
-            # 为每个柱准备默认解释（确保即使异常也有合理显示）
-            default_explanations = [
-                "Harmonious cosmic energy shaping your life path",
-                "Balanced elemental forces guiding your growth",
-                "Powerful destiny vibrations supporting your journey"
-            ]
-            
-            for idx, (gan, zhi) in enumerate(zip(gans, zhis)):
-                # 1. 校验天干是否在五行映射表中（防止KeyError）
-                if gan not in five_elements:
-                    gunicorn_logger.warning(f"Unknown heavenly stem: {gan} (index {idx}), use default explanation")
+        default_explanations = [
+            "Harmonious cosmic energy shaping your life path",
+            "Balanced elemental forces guiding your growth",
+            "Powerful destiny vibrations supporting your journey"
+        ]
+        
+        for idx, (gan, zhi) in enumerate(zip(gans, zhis)):
+            try:
+                if gan in five_elements and zhi in branch_elements:
+                    gan_element = five_elements[gan]
+                    zhi_element = branch_elements[zhi]
+                    exp = get_pillar_explanation(gan_element, zhi_element)
+                    pillar_explanations.append(exp)
+                else:
+                    # 如果天干或地支不在映射表中，使用默认解释
                     pillar_explanations.append(default_explanations[idx])
-                    continue
-                # 2. 校验地支是否在五行映射表中（防止KeyError）
-                if zhi not in branch_elements:
-                    gunicorn_logger.warning(f"Unknown earthly branch: {zhi} (index {idx}), use default explanation")
-                    pillar_explanations.append(default_explanations[idx])
-                    continue
-                
-                # 3. 正常生成解释（若前面校验通过，此处不会报错）
-                gan_element = five_elements[gan]
-                zhi_element = branch_elements[zhi]
-                exp = get_pillar_explanation(gan_element, zhi_element)
-                pillar_explanations.append(exp)
-            
-            # 4. 兜底：确保数组长度为3（与前端Year/Month/Day标签完全匹配）
-            while len(pillar_explanations) < 3:
-                pillar_explanations.append("Positive celestial energy enhancing your luck")
-            gunicorn_logger.debug(f"Generated pillar explanations: {pillar_explanations}")
+            except Exception as e:
+                # 如果生成解释过程中出现任何错误，使用默认解释
+                gunicorn_logger.warning(f"Error generating explanation for pillar {idx}: {str(e)}")
+                pillar_explanations.append(default_explanations[idx])
+        
+        # 确保数组长度为3（与前端Year/Month/Day标签完全匹配）
+        if len(pillar_explanations) < 3:
+            # 添加默认解释直到有3个元素
+            for i in range(3 - len(pillar_explanations)):
+                pillar_explanations.append(default_explanations[i])
+        
+        gunicorn_logger.debug(f"Generated pillar explanations: {pillar_explanations}")
 
-        except Exception as exp_err:
-            # 捕获所有解释生成过程中的异常，返回默认解释（避免数组为空）
-            gunicorn_logger.error(f"Failed to generate pillar explanations: {str(exp_err)}", exc_info=True)
-            pillar_explanations = [
-                "Harmonious cosmic energy shaping your life path",
-                "Balanced elemental forces guiding your growth",
-                "Powerful destiny vibrations supporting your journey"
-            ]
-
-        # 日主、五行、幸运方向计算（逻辑不变，确保元素映射正确）
+        # 日主、五行、幸运方向计算
         day_master = gans[2]
         element = five_elements[day_master]
         original_angle = joy_directions[element]['angle']
 
-        # 时区调整逻辑（保持原有规则，修复浮点数计算精度）
+        # 时区调整
         try:
             benchmark_offset = 8.0
             user_offset = float(received_timezone)
             diff_hours = user_offset - benchmark_offset
-            adjustment = diff_hours * 15  # 每小时对应15度（360度/24小时）
-            angle = round(original_angle + adjustment, 2)  # 保留2位小数，避免精度问题
-            angle = angle % 360  # 确保角度在0-360范围内
+            adjustment = diff_hours * 15
+            angle = round(original_angle + adjustment, 2)
+            angle = angle % 360
             if angle < 0:
                 angle += 360
         except Exception as e:
-            raise ValueError(f"Timezone adjustment failed: {str(e)}")
+            gunicorn_logger.error(f"Timezone adjustment failed: {str(e)}")
+            angle = original_angle  # 使用原始角度作为后备
 
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, "
-            f"original_angle={original_angle}, adjusted_angle={angle}, "
-            f"bazi_explanations={pillar_explanations}"
+            f"original_angle={original_angle}, adjusted_angle={angle}"
         )
 
-        # 返回结果（确保字段完整，与前端匹配）
+        # 返回结果
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-            'bazi': ' '.join(bazi),  # 三个元素的八字（年 月 日）
-            'bazi_explanations': pillar_explanations,  # 三个解释（与前端Year/Month/Day标签对应）
-            'angle': angle  # 调整后的幸运角度
+            'bazi': ' '.join(bazi),
+            'bazi_explanations': pillar_explanations,  # 确保始终返回3个元素的数组
+            'angle': angle
         })
 
     except Exception as e:
         error_msg = f'Calculation failed: {str(e)}'
-        gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)  # 输出完整异常栈
-        return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+        gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)
+        
+        # 即使出错也返回默认的bazi_explanations数组
+        default_explanations = [
+            "Harmonious cosmic energy shaping your life path",
+            "Balanced elemental forces guiding your growth",
+            "Powerful destiny vibrations supporting your journey"
+        ]
+        
+        return jsonify({
+            'error': error_msg, 
+            'bazi_explanations': default_explanations
+        }), 400
 
 if __name__ == '__main__':
-    # 本地运行时使用，生产环境用gunicorn
-    app.run(host='0.0.0.0', port=8080, debug=False)  # 关闭debug模式，避免安全风险
+    app.run(host='0.0.0.0', port=8080, debug=False)
