@@ -254,19 +254,12 @@ def calculate():
 
         # 计算28星宿
         lunar_mansion, _ = get_constellation_and_element(year, month, day)
+        # 如果计算失败，使用默认值
         if not lunar_mansion:
-            error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}, lunar day: {lunar_day}"
-            gunicorn_logger.error(error_msg)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': ' '.join(bazi),
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
-                'angle': 0
-            }), 400
-        
-        lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
+            lunar_mansion = "Unknown"
+            lunar_mansion_desc = "Could not calculate lunar mansion for this date."
+        else:
+            lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
         
         # 日主、五行、幸运方向计算
         day_master = gans[2]
