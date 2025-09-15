@@ -167,13 +167,49 @@ def calculate():
         bazi = [f"{heavenly_stems[gan]}{earthly_branches[zhi]}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        # 计算柱解释（三个解释，与前端标签对应）
+        # --------------------------
+        # 核心修复：柱解释生成（添加强校验+异常捕获+默认值）
+        # --------------------------
         pillar_explanations = []
-        for gan, zhi in zip(gans, zhis):
-            gan_element = five_elements[gan]
-            zhi_element = branch_elements[zhi]
-            exp = get_pillar_explanation(gan_element, zhi_element)
-            pillar_explanations.append(exp)
+        try:
+            # 为每个柱准备默认解释（确保即使异常也有合理显示）
+            default_explanations = [
+                "Harmonious cosmic energy shaping your life path",
+                "Balanced elemental forces guiding your growth",
+                "Powerful destiny vibrations supporting your journey"
+            ]
+            
+            for idx, (gan, zhi) in enumerate(zip(gans, zhis)):
+                # 1. 校验天干是否在五行映射表中（防止KeyError）
+                if gan not in five_elements:
+                    gunicorn_logger.warning(f"Unknown heavenly stem: {gan} (index {idx}), use default explanation")
+                    pillar_explanations.append(default_explanations[idx])
+                    continue
+                # 2. 校验地支是否在五行映射表中（防止KeyError）
+                if zhi not in branch_elements:
+                    gunicorn_logger.warning(f"Unknown earthly branch: {zhi} (index {idx}), use default explanation")
+                    pillar_explanations.append(default_explanations[idx])
+                    continue
+                
+                # 3. 正常生成解释（若前面校验通过，此处不会报错）
+                gan_element = five_elements[gan]
+                zhi_element = branch_elements[zhi]
+                exp = get_pillar_explanation(gan_element, zhi_element)
+                pillar_explanations.append(exp)
+            
+            # 4. 兜底：确保数组长度为3（与前端Year/Month/Day标签完全匹配）
+            while len(pillar_explanations) < 3:
+                pillar_explanations.append("Positive celestial energy enhancing your luck")
+            gunicorn_logger.debug(f"Generated pillar explanations: {pillar_explanations}")
+
+        except Exception as exp_err:
+            # 捕获所有解释生成过程中的异常，返回默认解释（避免数组为空）
+            gunicorn_logger.error(f"Failed to generate pillar explanations: {str(exp_err)}", exc_info=True)
+            pillar_explanations = [
+                "Harmonious cosmic energy shaping your life path",
+                "Balanced elemental forces guiding your growth",
+                "Powerful destiny vibrations supporting your journey"
+            ]
 
         # 日主、五行、幸运方向计算（逻辑不变，确保元素映射正确）
         day_master = gans[2]
