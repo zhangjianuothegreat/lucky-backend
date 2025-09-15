@@ -51,7 +51,7 @@ joy_directions = {
     'Wood': {'joy': 'North (Water)', 'angle': 0},
     'Fire': {'joy': 'East (Wood)', 'angle': 90},
     'Earth': {'joy': 'South (Fire)', 'angle': 180},
-    'Metal': {'joy': 'South (Earth)', 'angle': 180},
+    'Metal': {'joy': 'South (Earth)', 'angle': 145},
     'Water': {'joy': 'West (Metal)', 'angle': 270}
 }
 
@@ -70,8 +70,9 @@ def calculate():
     received_year = request.args.get('year')
     received_month = request.args.get('month')
     received_day = request.args.get('day')
+    received_timezone = request.args.get('timezone', '8')  # 默认东八区
     gunicorn_logger.debug(
-        f"Received GET /calculate with params: year={received_year}, month={received_month}, day={received_day}"
+        f"Received GET /calculate with params: year={received_year}, month={received_month}, day={received_day}, timezone={received_timezone}"
     )
 
     try:
@@ -100,22 +101,31 @@ def calculate():
         day_master = gans[2]
         element = five_elements[day_master]
         joy_direction = joy_directions[element]['joy']
-        angle = joy_directions[element]['angle']
+        original_angle = joy_directions[element]['angle']
         relation = element_relations[element]
-        direction = joy_direction.split(' ')[0]
-        direction_english = direction_mapping[direction]
-        explanation = f"Your Day Master is {element}. {relation['produced_by']} supports {element}, so your lucky direction is {direction_english}."
+
+        # 时区调整逻辑（以东八区UTC+8为基准）
+        benchmark_offset = 8.0
+        user_offset = float(received_timezone)
+        diff_hours = user_offset - benchmark_offset
+        adjustment = diff_hours * 15
+        angle = original_angle + adjustment
+        angle = angle % 360
+        if angle < 0:
+            angle += 360
+
+        # 修改explanation，不包含具体方向和五行属性
+        explanation = f"Your Core Element is {element}. It is supported by {relation['produced_by']}. Use the compass to find your lucky direction."
         gunicorn_logger.debug(
-            f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, joy_direction={joy_direction}, angle={angle}"
+            f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, original_angle={original_angle}, adjusted_angle={angle}"
         )  # 记录最终计算结果
 
-        # 原有返回逻辑
+        # 原有返回逻辑，移除joy_direction
         return jsonify({
             'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi': ' '.join(bazi),
             'day_master': heavenly_stems[day_master],
             'element': element,
-            'joy_direction': joy_direction,
             'angle': angle,
             'explanation': explanation
         })
