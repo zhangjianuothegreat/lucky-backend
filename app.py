@@ -30,21 +30,33 @@ earthly_branches = {
     '申': 'Shen', '酉': 'You', '戌': 'Xu', '亥': 'Hai'
 }
 
-# Five Elements mapping
+# Five Elements mapping for stems
 five_elements = {
     '甲': 'Wood', '乙': 'Wood', '丙': 'Fire', '丁': 'Fire', 
     '戊': 'Earth', '己': 'Earth', '庚': 'Metal', '辛': 'Metal', 
     '壬': 'Water', '癸': 'Water'
 }
 
-# Five Elements relationships
-element_relations = {
-    'Wood': {'produced_by': 'Water', 'produces': 'Fire'},
-    'Fire': {'produced_by': 'Wood', 'produces': 'Earth'},
-    'Earth': {'produced_by': 'Fire', 'produces': 'Metal'},
-    'Metal': {'produced_by': 'Earth', 'produces': 'Water'},
-    'Water': {'produced_by': 'Metal', 'produces': 'Wood'}
+# Five Elements mapping for branches
+branch_elements = {
+    '子': 'Water', '丑': 'Earth', '寅': 'Wood', '卯': 'Wood', 
+    '辰': 'Earth', '巳': 'Fire', '午': 'Fire', '未': 'Earth', 
+    '申': 'Metal', '酉': 'Metal', '戌': 'Earth', '亥': 'Water'
 }
+
+# Adjectives for elements
+element_adjectives = {
+    'Wood': 'growth',
+    'Fire': 'passion',
+    'Earth': 'stability',
+    'Metal': 'strength',
+    'Water': 'flow'
+}
+
+def get_pillar_explanation(gan_element, zhi_element):
+    adj1 = element_adjectives[gan_element]
+    adj2 = element_adjectives[zhi_element]
+    return f"{gan_element} meets {zhi_element}, a celestial blend of {adj1} and {adj2}."
 
 # Joy Directions based on Five Elements with angles
 joy_directions = {
@@ -53,14 +65,6 @@ joy_directions = {
     'Earth': {'joy': 'South (Fire)', 'angle': 180},
     'Metal': {'joy': 'South (Earth)', 'angle': 145},
     'Water': {'joy': 'West (Metal)', 'angle': 270}
-}
-
-# Direction mapping
-direction_mapping = {
-    'North': 'North',
-    'East': 'East',
-    'South': 'South',
-    'West': 'West'
 }
 
 # 八字计算端点（添加日志，保留原有逻辑）
@@ -97,12 +101,18 @@ def calculate():
         bazi = [f"{heavenly_stems[g]}{earthly_branches[z]}" for g, z in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")  # 记录八字生成结果
 
+        # 计算柱解释
+        pillar_explanations = []
+        for g, z in zip(gans, zhis):
+            gan_element = five_elements[g]
+            zhi_element = branch_elements[z]
+            exp = get_pillar_explanation(gan_element, zhi_element)
+            pillar_explanations.append(exp)
+
         # 原有日主、五行、幸运方向计算逻辑
         day_master = gans[2]
         element = five_elements[day_master]
-        joy_direction = joy_directions[element]['joy']
         original_angle = joy_directions[element]['angle']
-        relation = element_relations[element]
 
         # 时区调整逻辑（以东八区UTC+8为基准）
         benchmark_offset = 8.0
@@ -114,20 +124,16 @@ def calculate():
         if angle < 0:
             angle += 360
 
-        # 修改explanation，不包含具体方向和五行属性
-        explanation = f"Your Core Element is {element}. It is supported by {relation['produced_by']}. Use the compass to find your lucky direction."
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, original_angle={original_angle}, adjusted_angle={angle}"
         )  # 记录最终计算结果
 
-        # 原有返回逻辑，移除joy_direction
+        # 返回逻辑，移除不必要的字段
         return jsonify({
             'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi': ' '.join(bazi),
-            'day_master': heavenly_stems[day_master],
-            'element': element,
-            'angle': angle,
-            'explanation': explanation
+            'bazi_explanations': pillar_explanations,
+            'angle': angle
         })
 
     # 原有异常捕获逻辑（添加错误日志）
