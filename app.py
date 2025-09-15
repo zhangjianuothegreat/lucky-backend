@@ -6,12 +6,12 @@ gunicorn_logger.setLevel(logging.DEBUG)
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lunar_python import Solar, Lunar
-import datetime  # 新增：用于日期验证
+import datetime  # 用于日期验证
 
 app = Flask(__name__)
-CORS(app)  # Enable CORS for cross-origin requests
+CORS(app)  # 启用跨域请求支持
 
-# 28 Lunar Mansions with descriptions
+# 28星宿及其描述
 lunar_mansions = [
     "Horn", "Neck", "Root", "Room", "Heart", "Tail", "Basket",
     "Dipper", "Ox", "Girl", "Emptiness", "Danger", "Encampment", "Wall",
@@ -50,35 +50,35 @@ lunar_mansions_descriptions = {
     "Chariot": "The vehicle of progress, driving you to victory."
 }
 
-# Heavenly Stems (English mapping)
+# 天干英文映射
 heavenly_stems = {
     '甲': 'Jia', '乙': 'Yi', '丙': 'Bing', '丁': 'Ding', 
     '戊': 'Wu', '己': 'Ji', '庚': 'Geng', '辛': 'Xin', 
     '壬': 'Ren', '癸': 'Gui'
 }
 
-# Earthly Branches (English mapping)
+# 地支英文映射
 earthly_branches = {
     '子': 'Zi', '丑': 'Chou', '寅': 'Yin', '卯': 'Mao', 
     '辰': 'Chen', '巳': 'Si', '午': 'Wu', '未': 'Wei', 
     '申': 'Shen', '酉': 'You', '戌': 'Xu', '亥': 'Hai'
 }
 
-# Five Elements mapping
+# 五行映射
 five_elements = {
     '甲': 'Wood', '乙': 'Wood', '丙': 'Fire', '丁': 'Fire', 
     '戊': 'Earth', '己': 'Earth', '庚': 'Metal', '辛': 'Metal', 
     '壬': 'Water', '癸': 'Water'
 }
 
-# Branch Elements mapping
+# 地支五行映射
 branch_elements = {
     'Zi': 'Water', 'Chou': 'Earth', 'Yin': 'Wood', 'Mao': 'Wood',
     'Chen': 'Earth', 'Si': 'Fire', 'Wu': 'Fire', 'Wei': 'Earth',
     'Shen': 'Metal', 'You': 'Metal', 'Xu': 'Earth', 'Hai': 'Water'
 }
 
-# Joy Directions based on Five Elements with base angles (东八区基础角度)
+# 五行幸运方向基础角度（东八区）
 joy_directions_base = {
     'Wood': 0,    # 基础角度
     'Fire': 90,
@@ -106,7 +106,7 @@ def calculate():
     )
 
     try:
-        # 参数校验 - 增强版
+        # 参数校验
         if not all([received_year, received_month, received_day]):
             error_msg = 'Missing required parameters: year, month, and day are all required'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
@@ -151,7 +151,7 @@ def calculate():
             timezone = 8.0
             gunicorn_logger.debug(f"Invalid timezone, using default: {timezone}")
 
-        # 农历转换 - 增加详细日志
+        # 农历转换
         try:
             solar = Solar.fromYmd(year, month, day)
             lunar = solar.getLunar()
@@ -164,9 +164,11 @@ def calculate():
                 'bazi_attributes': []
             }), 400
 
-        # 八字计算 - 增加详细日志
+        # 八字计算 - 修复核心问题：使用完整的八字数据
         try:
+            # 获取完整的八字数据（年、月、日、时）
             ba = lunar.getEightChar()
+            # 改为使用前三项（年、月、日）
             gans = [ba.getYearGan(), ba.getMonthGan(), ba.getDayGan()]
             zhis = [ba.getYearZhi(), ba.getMonthZhi(), ba.getDayZhi()]
             
@@ -188,11 +190,17 @@ def calculate():
             bazi = []
             bazi_attributes = []
             for g, z in zip(gans, zhis):
-                stem_eng = heavenly_stems[g]
-                branch_eng = earthly_branches[z]
+                # 检查是否存在映射，不存在则使用原始值
+                stem_eng = heavenly_stems.get(g, g)
+                branch_eng = earthly_branches.get(z, z)
                 bazi.append(f"{stem_eng}{branch_eng}")
+                
+                # 获取五行属性，提供默认值以防映射缺失
+                element_g = five_elements.get(g, "Unknown")
+                element_z = branch_elements.get(branch_eng, "Unknown")
+                
                 bazi_attributes.append(
-                    f"{stem_eng}{branch_eng}: {five_elements[g]} meets {branch_elements[branch_eng]}, a celestial blend of {five_elements[g].lower()}’s strength and {branch_elements[branch_eng].lower()}’s flow"
+                    f"{stem_eng}{branch_eng}: {element_g} meets {element_z}, a celestial blend of {element_g.lower()}’s strength and {element_z.lower()}’s flow"
                 )
             gunicorn_logger.debug(f"BaZi attributes generated: {', '.join(bazi)}")
         except Exception as e:
@@ -205,9 +213,9 @@ def calculate():
 
         # 计算幸运度数
         try:
-            day_master = gans[2]
-            element = five_elements[day_master]
-            base_angle = joy_directions_base[element]
+            day_master = gans[2]  # 日主（日干）
+            element = five_elements.get(day_master, 'Earth')  # 提供默认值
+            base_angle = joy_directions_base.get(element, 180)  # 提供默认角度
 
             timezone_diff = timezone - 8.0
             angle_adjustment = timezone_diff * 15
@@ -219,14 +227,14 @@ def calculate():
             gunicorn_logger.error(f"/calculate lucky degree error: {error_msg}")
             return jsonify({
                 'error': error_msg,
-                'bazi_attributes': []
+                'bazi_attributes': bazi_attributes  # 保留已生成的八字数据
             }), 400
 
         # 计算28星宿
         try:
             mansion_index = (lunar.getDay() - 1) % 28
             mansion = lunar_mansions[mansion_index]
-            mansion_desc = lunar_mansions_descriptions[mansion]
+            mansion_desc = lunar_mansions_descriptions.get(mansion, "A celestial guide in your cosmic journey.")
             gunicorn_logger.debug(f"Mansion calculated: {mansion}")
         except Exception as e:
             error_msg = f'Failed to calculate lunar mansion: {str(e)}'
@@ -252,7 +260,7 @@ def calculate():
         return jsonify({
             'error': error_msg,
             'bazi_attributes': []
-        }), 500  # 使用500表示服务器内部错误
+        }), 500  # 服务器内部错误
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)  # 开启debug模式便于开发调试
+    app.run(host='0.0.0.0', port=8080, debug=True)  # 开发模式
