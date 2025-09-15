@@ -38,27 +38,6 @@ five_elements = {
     '壬': 'Water', '癸': 'Water'
 }
 
-# Five Elements mapping for branches
-branch_elements = {
-    '子': 'Water', '丑': 'Earth', '寅': 'Wood', '卯': 'Wood', 
-    '辰': 'Earth', '巳': 'Fire', '午': 'Fire', '未': 'Earth', 
-    '申': 'Metal', '酉': 'Metal', '戌': 'Earth', '亥': 'Water'
-}
-
-# Adjectives for elements
-element_adjectives = {
-    'Wood': 'growth',
-    'Fire': 'passion',
-    'Earth': 'stability',
-    'Metal': 'strength',
-    'Water': 'flow'
-}
-
-def get_pillar_explanation(gan_element, zhi_element):
-    adj1 = element_adjectives[gan_element]
-    adj2 = element_adjectives[zhi_element]
-    return f"{gan_element} meets {zhi_element}, a celestial blend of {adj1} and {adj2}."
-
 # Joy Directions based on Five Elements with angles
 joy_directions = {
     'Wood': {'joy': 'North (Water)', 'angle': 0},
@@ -88,7 +67,7 @@ def calculate():
         if not (received_year and received_month and received_day):
             error_msg = 'Missing required parameters: year, month, or day cannot be empty'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+            return jsonify({'error': error_msg}), 400
         
         year = int(received_year)
         month = int(received_month)
@@ -96,13 +75,13 @@ def calculate():
         
         if year < 1900 or year > 2024:
             error_msg = 'Year must be between 1900 and 2024'
-            return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+            return jsonify({'error': error_msg}), 400
         if month < 1 or month > 12:
             error_msg = 'Month must be between 1 and 12'
-            return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+            return jsonify({'error': error_msg}), 400
         if day < 1 or day > 31:
             error_msg = 'Day must be between 1 and 31'
-            return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+            return jsonify({'error': error_msg}), 400
 
         # 验证日期有效性
         try:
@@ -110,7 +89,7 @@ def calculate():
         except ValueError as e:
             error_msg = f'Invalid date: {str(e)}'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+            return jsonify({'error': error_msg}), 400
 
         # 处理可选的时间参数
         hour = None
@@ -122,7 +101,7 @@ def calculate():
                     raise ValueError("Hour out of range 0-23")
             except ValueError as e:
                 error_msg = f'Invalid hour: {str(e)}'
-                return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+                return jsonify({'error': error_msg}), 400
         if received_minute:
             try:
                 minute = int(received_minute)
@@ -130,7 +109,7 @@ def calculate():
                     raise ValueError("Minute out of range 0-59")
             except ValueError as e:
                 error_msg = f'Invalid minute: {str(e)}'
-                return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
+                return jsonify({'error': error_msg}), 400
 
         # 创建公历对象并转换为农历
         solar = Solar.fromYmd(year, month, day)
@@ -163,37 +142,6 @@ def calculate():
         bazi = [f"{heavenly_stems[gan]}{earthly_branches[zhi]}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        # 生成柱解释 - 关键修复部分
-        pillar_explanations = []
-        default_explanations = [
-            "Harmonious cosmic energy shaping your life path",
-            "Balanced elemental forces guiding your growth",
-            "Powerful destiny vibrations supporting your journey"
-        ]
-        
-        for idx, (gan, zhi) in enumerate(zip(gans, zhis)):
-            try:
-                if gan in five_elements and zhi in branch_elements:
-                    gan_element = five_elements[gan]
-                    zhi_element = branch_elements[zhi]
-                    exp = get_pillar_explanation(gan_element, zhi_element)
-                    pillar_explanations.append(exp)
-                else:
-                    # 如果天干或地支不在映射表中，使用默认解释
-                    pillar_explanations.append(default_explanations[idx])
-            except Exception as e:
-                # 如果生成解释过程中出现任何错误，使用默认解释
-                gunicorn_logger.warning(f"Error generating explanation for pillar {idx}: {str(e)}")
-                pillar_explanations.append(default_explanations[idx])
-        
-        # 确保数组长度为3（与前端Year/Month/Day标签完全匹配）
-        if len(pillar_explanations) < 3:
-            # 添加默认解释直到有3个元素
-            for i in range(3 - len(pillar_explanations)):
-                pillar_explanations.append(default_explanations[i])
-        
-        gunicorn_logger.debug(f"Generated pillar explanations: {pillar_explanations}")
-
         # 日主、五行、幸运方向计算
         day_master = gans[2]
         element = five_elements[day_master]
@@ -218,11 +166,10 @@ def calculate():
             f"original_angle={original_angle}, adjusted_angle={angle}"
         )
 
-        # 返回结果
+        # 返回结果 - 移除了解释部分
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
-            'bazi_explanations': pillar_explanations,  # 确保始终返回3个元素的数组
             'angle': angle
         })
 
@@ -230,17 +177,7 @@ def calculate():
         error_msg = f'Calculation failed: {str(e)}'
         gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)
         
-        # 即使出错也返回默认的bazi_explanations数组
-        default_explanations = [
-            "Harmonious cosmic energy shaping your life path",
-            "Balanced elemental forces guiding your growth",
-            "Powerful destiny vibrations supporting your journey"
-        ]
-        
-        return jsonify({
-            'error': error_msg, 
-            'bazi_explanations': default_explanations
-        }), 400
+        return jsonify({'error': error_msg}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)
