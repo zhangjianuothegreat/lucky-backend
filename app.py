@@ -107,12 +107,22 @@ joy_directions = {
     'Water': {'joy': 'West (Metal)', 'angle': 270}
 }
 
-def get_constellation_and_element(lunar_day):
-    """根据农历日期计算对应的28星宿和元素"""
+def get_constellation_and_element(year, month, day):
+    """根据公历日期计算对应的28星宿和元素"""
     try:
+        # 创建公历对象并转换为农历
+        solar = Solar.fromYmd(year, month, day)
+        lunar = solar.getLunar()
+        if not lunar:
+            gunicorn_logger.error(f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date")
+            return None, None
+        
+        lunar_day = lunar.getDay()
+        gunicorn_logger.debug(f"Retrieved lunar_day: {lunar_day} for date {year}-{month:02d}-{day:02d}")
+        
         # 确保 lunar_day 是有效的整数
         if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
-            gunicorn_logger.error(f"Invalid lunar_day: {lunar_day}")
+            gunicorn_logger.error(f"Invalid lunar_day: {lunar_day} for date {year}-{month:02d}-{day:02d}")
             return None, None
         
         # 计算星宿索引
@@ -124,7 +134,7 @@ def get_constellation_and_element(lunar_day):
         gunicorn_logger.debug(f"Calculated constellation: {translated}, element: {element} for lunar_day: {lunar_day}")
         return translated, element
     except Exception as e:
-        gunicorn_logger.error(f"Error calculating constellation for lunar_day {lunar_day}: {str(e)}", exc_info=True)
+        gunicorn_logger.error(f"Error calculating constellation for date {year}-{month:02d}-{day:02d}: {str(e)}", exc_info=True)
         return None, None
 
 # 八字计算端点
@@ -196,9 +206,11 @@ def calculate():
             solar = Solar.fromYmd(year, month, day)
             lunar = solar.getLunar()
             if not lunar:
-                raise ValueError("Failed to convert solar date to lunar date")
+                error_msg = f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date"
+                gunicorn_logger.error(error_msg)
+                return jsonify({'error': error_msg}), 400
         except Exception as e:
-            error_msg = f"Lunar conversion failed: {str(e)}"
+            error_msg = f"Lunar conversion failed for {year}-{month:02d}-{day:02d}: {str(e)}"
             gunicorn_logger.error(error_msg, exc_info=True)
             return jsonify({'error': error_msg}), 400
         
@@ -207,8 +219,8 @@ def calculate():
         lunar_day = lunar.getDay()
         
         # 验证农历日期有效性
-        if not (1 <= lunar_day <= 31):
-            error_msg = f"Invalid lunar day: {lunar_day}"
+        if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
+            error_msg = f"Invalid lunar day {lunar_day} for date {year}-{month:02d}-{day:02d}"
             gunicorn_logger.error(error_msg)
             return jsonify({'error': error_msg}), 400
         
@@ -221,9 +233,11 @@ def calculate():
         try:
             ba = lunar.getEightChar()
             if not ba:
-                raise ValueError("Failed to get Eight Characters (BaZi) from lunar date")
+                error_msg = f"Failed to get Eight Characters (BaZi) for lunar date {lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
+                gunicorn_logger.error(error_msg)
+                return jsonify({'error': error_msg}), 400
         except Exception as e:
-            error_msg = f"BaZi calculation failed: {str(e)}"
+            error_msg = f"BaZi calculation failed for {year}-{month:02d}-{day:02d}: {str(e)}"
             gunicorn_logger.error(error_msg, exc_info=True)
             return jsonify({'error': error_msg}), 400
         
@@ -239,10 +253,10 @@ def calculate():
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
         # 计算28星宿
-        lunar_mansion, _ = get_constellation_and_element(lunar_day)
+        lunar_mansion, _ = get_constellation_and_element(year, month, day)
         if not lunar_mansion:
-            error_msg = f"Could not determine lunar mansion for lunar day: {lunar_day}"
-            gunicorn_logger.warning(error_msg)
+            error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}, lunar day: {lunar_day}"
+            gunicorn_logger.error(error_msg)
             return jsonify({
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
@@ -288,7 +302,7 @@ def calculate():
         })
 
     except Exception as e:
-        error_msg = f'Calculation failed: {str(e)}'
+        error_msg = f'Calculation failed for {year}-{month:02d}-{day:02d}: {str(e)}'
         gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)
         return jsonify({'error': error_msg}), 400
 
