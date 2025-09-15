@@ -11,6 +11,44 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
+# 28星宿及其描述
+lunar_mansions = [
+    "Horn", "Neck", "Root", "Room", "Heart", "Tail", "Basket",
+    "Dipper", "Ox", "Girl", "Emptiness", "Danger", "Encampment", "Wall",
+    "Legs", "Bond", "Stomach", "Pleiades", "Net", "Beak",
+    "Three Stars", "Well", "Ghosts", "Willow", "Star", "Extended Net", "Wings", "Chariot"
+]  
+lunar_mansions_descriptions = {
+    "Horn": "The beacon of ambition, igniting your path to success.",
+    "Neck": "The guardian of balance, harmonizing your cosmic journey.",
+    "Root": "The anchor of wisdom, grounding your soul in truth.",
+    "Room": "The haven of growth, opening doors to new beginnings.",
+    "Heart": "The star of passion, guiding your heart to cosmic love.",
+    "Tail": "The spark of transformation, leading you to renewal.",
+    "Basket": "The weave of abundance, attracting prosperity and joy.",
+    "Dipper": "The ladle of destiny, pouring clarity into your fate.",
+    "Ox": "The pillar of strength, carrying you through challenges.",
+    "Girl": "The muse of grace, inspiring beauty in your actions.",
+    "Emptiness": "The void of potential, inviting infinite possibilities.",
+    "Danger": "The flame of courage, empowering you to face fears.",
+    "Encampment": "The fortress of stability, shielding your dreams.",
+    "Wall": "The barrier of protection, safeguarding your spirit.",
+    "Legs": "The stride of progress, propelling you toward goals.",
+    "Bond": "The tie of connection, uniting you with cosmic allies.",
+    "Stomach": "The core of resilience, fueling your inner strength.",
+    "Pleiades": "The cluster of insight, illuminating hidden truths.",
+    "Net": "The web of opportunity, capturing luck in your path.",
+    "Beak": "The point of precision, sharpening your focus and will.",
+    "Three Stars": "The triad of harmony, balancing mind, body, soul.",
+    "Well": "The source of vitality, nourishing your cosmic energy.",
+    "Ghosts": "The whisper of ancestors, guiding with ancient wisdom.",
+    "Willow": "The branch of flexibility, bending with life's flow.",
+    "Star": "The light of destiny, shining on your true purpose.",
+    "Extended Net": "The reach of ambition, expanding your cosmic horizon.",
+    "Wings": "The flight of freedom, soaring to new heights.",
+    "Chariot": "The vehicle of progress, driving you to victory."
+}
+
 # 健康检查端点
 @app.route('/health', methods=['GET'])
 def health():
@@ -46,6 +84,16 @@ joy_directions = {
     'Metal': {'joy': 'South (Earth)', 'angle': 145},
     'Water': {'joy': 'West (Metal)', 'angle': 270}
 }
+
+def calculate_lunar_mansion(lunar_day):
+    """根据农历日期计算对应的28星宿"""
+    # 28星宿按日期循环，这里简单实现为日期模28取余
+    index = (lunar_day - 1) % 28
+    mansion = lunar_mansions[index]
+    return {
+        'mansion': mansion,
+        'description': lunar_mansions_descriptions[mansion]
+    }
 
 # 八字计算端点
 @app.route('/calculate', methods=['GET'])
@@ -142,6 +190,9 @@ def calculate():
         bazi = [f"{heavenly_stems[gan]}{earthly_branches[zhi]}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
+        # 计算28星宿
+        lunar_mansion = calculate_lunar_mansion(lunar_day)
+        
         # 日主、五行、幸运方向计算
         day_master = gans[2]
         element = five_elements[day_master]
@@ -163,13 +214,15 @@ def calculate():
 
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, "
-            f"original_angle={original_angle}, adjusted_angle={angle}"
+            f"original_angle={original_angle}, adjusted_angle={angle}, lunar_mansion={lunar_mansion['mansion']}"
         )
 
-        # 返回结果 - 移除了解释部分
+        # 返回结果 - 包含28星宿信息
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
+            'lunar_mansion': lunar_mansion['mansion'],
+            'lunar_mansion_description': lunar_mansion['description'],
             'angle': angle
         })
 
