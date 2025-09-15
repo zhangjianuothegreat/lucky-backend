@@ -6,8 +6,7 @@ primary_region = "sjc"
 
 [env]
   PORT = "8080"
-  HTTP_PROXY = ""
-  HTTPS_PROXY = ""
+  PYTHONUNBUFFERED = "1"  # 确保日志实时输出
   PIP_INDEX_URL = "https://mirrors.aliyun.com/pypi/simple/"
 
 [http_service]
@@ -19,7 +18,7 @@ primary_region = "sjc"
   processes = ["app"]
   [[http_service.checks]]
     interval = "15s"
-    timeout = "2s"  # 缩短超时，/health 响应更快
+    timeout = "2s"
     grace_period = "10s"
     method = "GET"
     path = "/health"
