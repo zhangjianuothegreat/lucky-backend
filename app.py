@@ -11,7 +11,7 @@ import datetime
 app = Flask(__name__)
 CORS(app, origins=["https://www.yourluckycompass.com", "http://localhost:8080"])
 
-# 28星宿及其描述
+# 28星宿及其描述（从当前版本引入）
 lunar_mansions = [
     "Horn", "Neck", "Root", "Room", "Heart", "Tail", "Basket",
     "Dipper", "Ox", "Girl", "Emptiness", "Danger", "Encampment", "Wall",
@@ -71,14 +71,14 @@ five_elements = {
     '壬': 'Water', '癸': 'Water'
 }
 
-# 地支五行映射
+# 地支五行映射（从当前版本引入）
 branch_elements = {
     '子': 'Water', '丑': 'Earth', '寅': 'Wood', '卯': 'Wood',
     '辰': 'Earth', '巳': 'Fire', '午': 'Fire', '未': 'Earth',
     '申': 'Metal', '酉': 'Metal', '戌': 'Earth', '亥': 'Water'
 }
 
-# 五行幸运方向基础角度（东八区）
+# 五行幸运方向基础角度（东八区，从当前版本引入）
 joy_directions_base = {
     'Wood': 0,
     'Fire': 90,
@@ -117,20 +117,18 @@ def calculate():
             
             # 验证日期有效性
             datetime.date(year, month, day)
-            
             if year < 1900 or year > 2100:
                 raise ValueError("Year must be between 1900 and 2100")
             if month < 1 or month > 12:
                 raise ValueError("Month must be between 1 and 12")
             if day < 1 or day > 31:
                 raise ValueError("Day must be between 1 and 31")
-                
             gunicorn_logger.debug(f"Date validated: {year}-{month}-{day}")
         except ValueError as ve:
             error_msg = f'Invalid date: {str(ve)}'
             gunicorn_logger.debug(f"/calculate date validation error: {error_msg}")
             return jsonify({'error': error_msg}), 400
-        
+
         # 处理时区参数
         try:
             timezone = float(received_timezone) if received_timezone else 8.0
@@ -158,17 +156,15 @@ def calculate():
             month_zhi = eight_char.getMonthZhi()
             day_gan = eight_char.getDayGan()
             day_zhi = eight_char.getDayZhi()
-            
             gans = [year_gan, month_gan, day_gan]
             zhis = [year_zhi, month_zhi, day_zhi]
-            
             gunicorn_logger.debug(f"BaZi generated - Gans: {gans}, Zhis: {zhis}")
         except Exception as e:
             error_msg = f'Failed to calculate BaZi: {str(e)}'
             gunicorn_logger.error(f"/calculate BaZi error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
-        
-        # 生成八字属性
+
+        # 生成八字属性（适配前端）
         try:
             bazi_attributes = []
             for i, (g, z) in enumerate(zip(gans, zhis)):
@@ -213,7 +209,7 @@ def calculate():
             gunicorn_logger.error(f"/calculate mansion error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
 
-        # 返回结果
+        # 返回结果（适配前端期望的字段）
         result = {
             'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi_attributes': bazi_attributes,
