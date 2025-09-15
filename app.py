@@ -119,7 +119,11 @@ def calculate():
         if not (year and month and day):
             error_msg = 'Missing year, month, or day'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg}), 400
+            # 错误响应中也包含bazi_attributes字段
+            return jsonify({
+                'error': error_msg,
+                'bazi_attributes': []
+            }), 400
 
         # 农历转换 - 始终基于东八区计算八字
         solar = Solar.fromYmd(year, month, day)
@@ -182,8 +186,11 @@ def calculate():
     except Exception as e:
         error_msg = f'Calculation failed: {str(e)}'
         gunicorn_logger.error(f"/calculate error occurred: {error_msg}")
-        return jsonify({'error': error_msg}), 400
+        # 错误响应中也包含bazi_attributes字段，避免前端报错
+        return jsonify({
+            'error': error_msg,
+            'bazi_attributes': []
+        }), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
-    
