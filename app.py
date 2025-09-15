@@ -87,7 +87,7 @@ def calculate():
         if not (year and month and day):
             error_msg = 'Missing year, month, or day'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")  # 记录参数缺失日志
-            return jsonify({'error': error_msg}), 400
+            return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
 
         # 原有农历转换逻辑
         solar = Solar.fromYmd(year, month, day)
@@ -125,7 +125,7 @@ def calculate():
             angle += 360
 
         gunicorn_logger.debug(
-            f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, original_angle={original_angle}, adjusted_angle={angle}"
+            f"/calculate result: day_master={heavenly_stems[day_master]}, element={element}, original_angle={original_angle}, adjusted_angle={angle}, bazi_explanations={pillar_explanations}"
         )  # 记录最终计算结果
 
         # 返回逻辑，移除不必要的字段
@@ -139,8 +139,8 @@ def calculate():
     # 原有异常捕获逻辑（添加错误日志）
     except Exception as e:
         error_msg = f'Calculation failed: {str(e)}'
-        gunicorn_logger.error(f"/calculate error occurred: {error_msg}")  # 记录异常日志（用error级别更醒目）
-        return jsonify({'error': error_msg}), 400
+        gunicorn_logger.error(f"/calculate error occurred: {error_msg}")  # 记录异常日志
+        return jsonify({'error': error_msg, 'bazi_explanations': []}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080)
