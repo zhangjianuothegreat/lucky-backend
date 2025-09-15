@@ -9,7 +9,7 @@ from lunar_python import Solar, Lunar
 import datetime
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://www.yourluckycompass.com", "http://localhost:8080"])
 
 # 28星宿及其描述
 lunar_mansions = [
@@ -118,13 +118,14 @@ def calculate():
             # 验证日期有效性
             datetime.date(year, month, day)
             
-            if year < 1900 or year > 2024:
-                raise ValueError("Year must be between 1900 and 2024")
+            if year < 1900 or year > 2100:
+                raise ValueError("Year must be between 1900 and 2100")
             if month < 1 or month > 12:
                 raise ValueError("Month must be between 1 and 12")
             if day < 1 or day > 31:
                 raise ValueError("Day must be between 1 and 31")
                 
+            gunicorn_logger.debug(f"Date validated: {year}-{month}-{day}")
         except ValueError as ve:
             error_msg = f'Invalid date: {str(ve)}'
             gunicorn_logger.debug(f"/calculate date validation error: {error_msg}")
@@ -133,7 +134,8 @@ def calculate():
         # 处理时区参数
         try:
             timezone = float(received_timezone) if received_timezone else 8.0
-        except:
+            gunicorn_logger.debug(f"Timezone: {timezone}")
+        except ValueError:
             timezone = 8.0
             gunicorn_logger.debug(f"Invalid timezone, using default: {timezone}")
 
@@ -144,15 +146,12 @@ def calculate():
             gunicorn_logger.debug(f"Solar to lunar conversion successful: {year}-{month}-{day} -> {lunar.getYear()}-{lunar.getMonth()}-{lunar.getDay()}")
         except Exception as e:
             error_msg = f'Failed to convert to lunar calendar: {str(e)}'
-            gunicorn_logger.error(f"/calculate lunar conversion error: {error_msg}")
+            gunicorn_logger.error(f"/calculate lunar conversion error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
 
-        # 八字计算 - 修复核心问题
+        # 八字计算
         try:
-            # 获取八字数据
             eight_char = lunar.getEightChar()
-            
-            # 获取天干地支
             year_gan = eight_char.getYearGan()
             year_zhi = eight_char.getYearZhi()
             month_gan = eight_char.getMonthGan()
@@ -166,49 +165,44 @@ def calculate():
             gunicorn_logger.debug(f"BaZi generated - Gans: {gans}, Zhis: {zhis}")
         except Exception as e:
             error_msg = f'Failed to calculate BaZi: {str(e)}'
-            gunicorn_logger.error(f"/calculate BaZi error: {error_msg}")
+            gunicorn_logger.error(f"/calculate BaZi error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
         
-        # 生成八字及其属性描述
+        # 生成八字属性
         try:
             bazi_attributes = []
             for i, (g, z) in enumerate(zip(gans, zhis)):
                 stem_eng = heavenly_stems.get(g, g)
                 branch_eng = earthly_branches.get(z, z)
-                
                 element_g = five_elements.get(g, "Unknown")
                 element_z = branch_elements.get(z, "Unknown")
-                
                 position = ["Year", "Month", "Day"][i]
                 bazi_attributes.append(
                     f"{position}: {stem_eng}{branch_eng} ({element_g} meets {element_z})"
                 )
-                
-            gunicorn_logger.debug(f"BaZi attributes generated: {bazi_attributes}")
+            gunicorn_logger.debug(f"BaZi attributes: {bazi_attributes}")
         except Exception as e:
             error_msg = f'Failed to generate BaZi attributes: {str(e)}'
-            gunicorn_logger.error(f"/calculate BaZi attributes error: {error_msg}")
+            gunicorn_logger.error(f"/calculate BaZi attributes error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
 
         # 计算幸运度数
         try:
-            day_master = gans[2]  # 日主（日干）
+            day_master = gans[2]
             element = five_elements.get(day_master, 'Earth')
             base_angle = joy_directions_base.get(element, 180)
-
             timezone_diff = timezone - 8.0
             angle_adjustment = timezone_diff * 15
             adjusted_angle = (base_angle + angle_adjustment) % 360
             lucky_degree = round(adjusted_angle)
-            gunicorn_logger.debug(f"Lucky degree calculated: {lucky_degree}°")
+            gunicorn_logger.debug(f"Lucky degree calculated: {lucky_degree}° (day_master={day_master}, element={element})")
         except Exception as e:
             error_msg = f'Failed to calculate lucky degree: {str(e)}'
-            gunicorn_logger.error(f"/calculate lucky degree error: {error_msg}")
+            gunicorn_logger.error(f"/calculate lucky degree error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
 
         # 计算28星宿
         try:
-            # 使用更可靠的方法计算星宿索引
             lunar_day = lunar.getDay()
             mansion_index = (lunar_day - 1) % 28
             mansion = lunar_mansions[mansion_index]
@@ -216,17 +210,19 @@ def calculate():
             gunicorn_logger.debug(f"Mansion calculated: {mansion} (day {lunar_day}, index {mansion_index})")
         except Exception as e:
             error_msg = f'Failed to calculate lunar mansion: {str(e)}'
-            gunicorn_logger.error(f"/calculate mansion error: {error_msg}")
+            gunicorn_logger.error(f"/calculate mansion error: {error_msg}", exc_info=True)
             return jsonify({'error': error_msg}), 400
 
-        # 生成返回结果
-        return jsonify({
+        # 返回结果
+        result = {
             'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi_attributes': bazi_attributes,
             'mansion': mansion,
             'mansion_description': mansion_desc,
             'lucky_degree': lucky_degree
-        })
+        }
+        gunicorn_logger.debug(f"Response: {result}")
+        return jsonify(result)
 
     except Exception as e:
         error_msg = f'Unexpected error: {str(e)}'
