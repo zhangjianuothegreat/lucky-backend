@@ -1,4 +1,4 @@
-Flask>=3.0.0 
-flask-cors>=5.0.0 
-lunar-python>=0.2.5 
-gunicorn>=23.0.0
+Flask>=2.3.3  # 避免3.x版本可能的兼容性问题，选择稳定的2.x最新版
+flask-cors>=5.0.0
+lunar-python>=0.9.1  # 重点：更新到最新版（当前最新为0.9.1，修复大量农历转换bug）
+gunicorn>=21.2.0  # 稳定版即可，无需过度追求高版本
