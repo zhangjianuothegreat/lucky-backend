@@ -11,7 +11,7 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# 28星宿及其描述 - 使用参考代码中的结构
+# 28星宿及其描述
 CONSTELLATIONS = [
     ("Jiao Xiu", "Azure Dragon", "Wood"), ("Kang Xiu", "Azure Dragon", "Metal"), ("Di Xiu", "Azure Dragon", "Earth"),
     ("Fang Xiu", "Azure Dragon", "Wood"), ("Xin Xiu", "Azure Dragon", "Fire"), ("Wei Xiu", "Azure Dragon", "Fire"),
@@ -39,7 +39,7 @@ CONSTELLATION_TRANSLATIONS = {
     'Zhen Xiu': 'The Chariot'
 }
 
-# 星宿描述 - 使用您提供的描述内容
+# 星宿描述
 lunar_mansions_descriptions = {
     "The Horn": "The beacon of ambition, igniting your path to success.",
     "The Neck": "The guardian of balance, harmonizing your cosmic journey.",
@@ -108,20 +108,23 @@ joy_directions = {
 }
 
 def get_constellation_and_element(lunar_day):
-    """根据农历日期计算对应的28星宿和元素 - 参考成功代码实现"""
+    """根据农历日期计算对应的28星宿和元素"""
     try:
-        if lunar_day is None:
+        # 确保 lunar_day 是有效的整数
+        if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
+            gunicorn_logger.error(f"Invalid lunar_day: {lunar_day}")
             return None, None
-        # 确保日期在有效范围内
-        lunar_day = max(1, min(31, lunar_day))  # 农历日不会超过31
+        
+        # 计算星宿索引
         constellation_idx = (lunar_day - 1) % 28
         constellation = CONSTELLATIONS[constellation_idx][0]
         element = CONSTELLATIONS[constellation_idx][2]
         # 返回翻译后的星宿名称
         translated = CONSTELLATION_TRANSLATIONS.get(constellation, constellation)
+        gunicorn_logger.debug(f"Calculated constellation: {translated}, element: {element} for lunar_day: {lunar_day}")
         return translated, element
-    except (ValueError, IndexError) as e:
-        gunicorn_logger.error(f"Error calculating constellation: {str(e)}")
+    except Exception as e:
+        gunicorn_logger.error(f"Error calculating constellation for lunar_day {lunar_day}: {str(e)}", exc_info=True)
         return None, None
 
 # 八字计算端点
@@ -189,14 +192,25 @@ def calculate():
                 return jsonify({'error': error_msg}), 400
 
         # 创建公历对象并转换为农历
-        solar = Solar.fromYmd(year, month, day)
-        lunar = solar.getLunar()
-        if not lunar:
-            raise ValueError("Failed to convert solar date to lunar date")
+        try:
+            solar = Solar.fromYmd(year, month, day)
+            lunar = solar.getLunar()
+            if not lunar:
+                raise ValueError("Failed to convert solar date to lunar date")
+        except Exception as e:
+            error_msg = f"Lunar conversion failed: {str(e)}"
+            gunicorn_logger.error(error_msg, exc_info=True)
+            return jsonify({'error': error_msg}), 400
         
         lunar_year = lunar.getYear()
         lunar_month = lunar.getMonth()
         lunar_day = lunar.getDay()
+        
+        # 验证农历日期有效性
+        if not (1 <= lunar_day <= 31):
+            error_msg = f"Invalid lunar day: {lunar_day}"
+            gunicorn_logger.error(error_msg)
+            return jsonify({'error': error_msg}), 400
         
         gunicorn_logger.debug(
             f"/calculate solar to lunar success: solar={year}-{month:02d}-{day:02d}, "
@@ -204,9 +218,14 @@ def calculate():
         )
 
         # 获取八字
-        ba = lunar.getEightChar()
-        if not ba:
-            raise ValueError("Failed to get Eight Characters (BaZi) from lunar date")
+        try:
+            ba = lunar.getEightChar()
+            if not ba:
+                raise ValueError("Failed to get Eight Characters (BaZi) from lunar date")
+        except Exception as e:
+            error_msg = f"BaZi calculation failed: {str(e)}"
+            gunicorn_logger.error(error_msg, exc_info=True)
+            return jsonify({'error': error_msg}), 400
         
         gans = [ba.getYearGan(), ba.getMonthGan(), ba.getDayGan()]
         zhis = [ba.getYearZhi(), ba.getMonthZhi(), ba.getDayZhi()]
@@ -219,14 +238,21 @@ def calculate():
         bazi = [f"{heavenly_stems[gan]}{earthly_branches[zhi]}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        # 计算28星宿 - 使用修复后的方法
+        # 计算28星宿
         lunar_mansion, _ = get_constellation_and_element(lunar_day)
         if not lunar_mansion:
-            gunicorn_logger.warning(f"Could not determine lunar mansion for lunar day: {lunar_day}")
-            lunar_mansion = "Unknown"
-            lunar_mansion_desc = "No description available."
-        else:
-            lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
+            error_msg = f"Could not determine lunar mansion for lunar day: {lunar_day}"
+            gunicorn_logger.warning(error_msg)
+            return jsonify({
+                'error': error_msg,
+                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
+                'bazi': ' '.join(bazi),
+                'lunar_mansion': "Unknown",
+                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
+                'angle': 0
+            }), 400
+        
+        lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
         
         # 日主、五行、幸运方向计算
         day_master = gans[2]
@@ -252,7 +278,7 @@ def calculate():
             f"original_angle={original_angle}, adjusted_angle={angle}, lunar_mansion={lunar_mansion}"
         )
 
-        # 返回结果 - 包含28星宿信息
+        # 返回结果
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
@@ -264,9 +290,7 @@ def calculate():
     except Exception as e:
         error_msg = f'Calculation failed: {str(e)}'
         gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)
-        
         return jsonify({'error': error_msg}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=False)
-    
