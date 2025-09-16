@@ -41,6 +41,54 @@ joy_directions = {
     'Water': {'joy': 'West (Metal)', 'angle': 270}
 }
 
+# 星宿英文翻译
+CONSTELLATION_TRANSLATIONS = {
+    '角宿': 'The Horn', '亢宿': 'The Neck', '氐宿': 'The Root',
+    '房宿': 'The Room', '心宿': 'The Heart', '尾宿': 'The Tail',
+    '箕宿': 'The Winnowing Basket', '斗宿': 'The Dipper', '牛宿': 'The Ox',
+    '女宿': 'The Girl', '虚宿': 'The Void', '危宿': 'The Rooftop',
+    '室宿': 'The Encampment', '壁宿': 'The Wall', '奎宿': 'The Legs',
+    '娄宿': 'The Bond', '胃宿': 'The Stomach', '昴宿': 'The Pleiades',
+    '毕宿': 'The Net', '觜宿': 'The Beak', '参宿': 'The Three Stars',
+    '井宿': 'The Well', '鬼宿': 'The Ghost', '柳宿': 'The Willow',
+    '星宿': 'The Star', '张宿': 'The Extended Net', '翼宿': 'The Wings',
+    '轸宿': 'The Chariot'
+}
+
+# 二十八星宿表格（30行 x 12列，行对应日期1-30，列对应月份1-12）
+CONSTELLATION_TABLE = [
+    ["虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿"],
+    ["危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿"],
+    ["室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿"],
+    ["壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿"],
+    ["奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿"],
+    ["娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿"],
+    ["胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿"],
+    ["昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿"],
+    ["毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿"],
+    ["觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿"],
+    ["参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿"],
+    ["井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿"],
+    ["鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿"],
+    ["柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿"],
+    ["星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿"],
+    ["张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿"],
+    ["翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿"],
+    ["轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿"],
+    ["角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿"],
+    ["亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿"],
+    ["氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿"],
+    ["房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿"],
+    ["心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿"],
+    ["尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿"],
+    ["箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿"],
+    ["斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿"],
+    ["牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿"],
+    ["女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿"],
+    ["虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿"],
+    ["危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿"]
+]
+
 # 特殊日期修正（临时解决方案）
 DATE_CORRECTIONS = {
     (1976, 12, 3): {'lunar_year': 1976, 'lunar_month': 11, 'lunar_day': 3}
@@ -52,7 +100,7 @@ def health():
     gunicorn_logger.debug('Health check accessed')
     return jsonify({'status': 'ok'}), 200
 
-# 八字计算端点
+# 八字和星宿计算端点
 @app.route('/calculate', methods=['GET'])
 def calculate():
     received_year = request.args.get('year')
@@ -149,9 +197,22 @@ def calculate():
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
+                'constellation': 'Unknown',
                 'angle': 0
             }), 400
         
+        # 计算二十八星宿
+        try:
+            if lunar_month < 1 or lunar_month > 12 or lunar_day < 1 or lunar_day > 30:
+                constellation = 'Invalid lunar date for constellation'
+            else:
+                chinese_host = CONSTELLATION_TABLE[lunar_day - 1][lunar_month - 1]
+                constellation = CONSTELLATION_TRANSLATIONS.get(chinese_host, 'Unknown')
+            gunicorn_logger.debug(f"Calculated constellation: {constellation} for lunar date {lunar_year}-{lunar_month:02d}-{lunar_day:02d}")
+        except Exception as e:
+            constellation = 'Unknown'
+            gunicorn_logger.error(f"Constellation calculation failed: {str(e)}")
+
         gunicorn_logger.debug(
             f"/calculate solar to lunar success: solar={year}-{month:02d}-{day:02d}, "
             f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
@@ -167,6 +228,7 @@ def calculate():
                     'error': error_msg,
                     'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                     'bazi': 'Unknown',
+                    'constellation': constellation,
                     'angle': 0
                 }), 400
         except Exception as e:
@@ -176,6 +238,7 @@ def calculate():
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
+                'constellation': constellation,
                 'angle': 0
             }), 400
         
@@ -190,6 +253,7 @@ def calculate():
                     'error': error_msg,
                     'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                     'bazi': 'Unknown',
+                    'constellation': constellation,
                     'angle': 0
                 }), 400
         
@@ -225,6 +289,7 @@ def calculate():
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
+            'constellation': constellation,
             'angle': angle
         })
 
@@ -235,6 +300,7 @@ def calculate():
             'error': error_msg,
             'lunar_date': 'Unknown',
             'bazi': 'Unknown',
+            'constellation': 'Unknown',
             'angle': 0
         }), 400
 
