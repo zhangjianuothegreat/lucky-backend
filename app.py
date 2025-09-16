@@ -189,8 +189,14 @@ def calculate():
             lunar_month = lunar.getMonth()
             lunar_day = lunar.getDay()
         
+        # 处理闰月 - 只取月份数字，忽略闰月标记
+        if isinstance(lunar_month, str) and lunar_month.startswith('闰'):
+            lunar_month = int(lunar_month[1:])
+        lunar_month = int(lunar_month)
+        lunar_day = int(lunar_day)
+        
         # 验证农历日期有效性
-        if not isinstance(lunar_month, int) or not isinstance(lunar_day, int) or lunar_month < 1 or lunar_month > 12 or lunar_day < 1 or lunar_day > 30:
+        if lunar_month < 1 or lunar_month > 12 or lunar_day < 1 or lunar_day > 30:
             error_msg = f"Invalid lunar date: month={lunar_month}, day={lunar_day}"
             gunicorn_logger.error(error_msg)
             return jsonify({
@@ -206,14 +212,18 @@ def calculate():
             f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
         )
 
-        # 计算二十八星宿
+        # 计算二十八星宿 - 修复索引问题
         try:
-            chinese_host = CONSTELLATION_TABLE[lunar_day - 1][lunar_month - 1]
+            # 确保日期在有效范围内
+            row_index = max(0, min(29, lunar_day - 1))  # 确保在0-29范围内
+            col_index = max(0, min(11, lunar_month - 1))  # 确保在0-11范围内
+            
+            chinese_host = CONSTELLATION_TABLE[row_index][col_index]
             constellation = CONSTELLATION_TRANSLATIONS.get(chinese_host, 'Unknown')
             gunicorn_logger.debug(f"Constellation found: {chinese_host} -> {constellation}")
         except IndexError as e:
             constellation = 'Unknown'
-            gunicorn_logger.error(f"IndexError in constellation table: {str(e)}, lunar_day={lunar_day}, lunar_month={lunar_month}")
+            gunicorn_logger.error(f"IndexError in constellation table: {str(e)}, lunar_day={lunar_day}, lunar_month={lunar_month}, row={row_index}, col={col_index}")
         except Exception as e:
             constellation = 'Unknown'
             gunicorn_logger.error(f"Constellation calculation failed: {str(e)}")
