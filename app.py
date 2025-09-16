@@ -1,4 +1,3 @@
-```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
 gunicorn_logger = logging.getLogger('gunicorn')
@@ -8,124 +7,57 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lunar_python import Solar, Lunar
 from datetime import datetime
-import hashlib
 
 app = Flask(__name__)
 CORS(app)
 
-# 公历版 28 星宿查询表（已翻译为英文）
-LUNAR_MANSIONS = [
-    ["The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well"],
-    ["The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost"],
-    ["The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow"],
-    ["The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star"],
-    ["The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net"],
-    ["The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings"],
-    ["The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot"],
-    ["The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn"],
-    ["The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck"],
-    ["The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root"],
-    ["The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room"],
-    ["The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart"],
-    ["The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail"],
-    ["The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket"],
-    ["The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper"],
-    ["The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox"],
-    ["The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl"],
-    ["The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void"],
-    ["The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop"],
-    ["The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment"],
-    ["The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall"],
-    ["The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs"],
-    ["The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond"],
-    ["The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach"],
-    ["The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades"],
-    ["The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net"],
-    ["The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak"],
-    ["The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars"],
-    ["The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well"],
-    ["The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost"],
-    ["The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow"]
-]
-
-# 星宿描述
-lunar_mansions_descriptions = {
-    "The Horn": "The beacon of ambition, igniting your path to success.",
-    "The Neck": "The guardian of balance, harmonizing your cosmic journey.",
-    "The Root": "The anchor of wisdom, grounding your soul in truth.",
-    "The Room": "The haven of growth, opening doors to new beginnings.",
-    "The Heart": "The star of passion, guiding your heart to cosmic love.",
-    "The Tail": "The spark of transformation, leading you to renewal.",
-    "The Winnowing Basket": "The weave of abundance, attracting prosperity and joy.",
-    "The Dipper": "The ladle of destiny, pouring clarity into your fate.",
-    "The Ox": "The pillar of strength, carrying you through challenges.",
-    "The Girl": "The muse of grace, inspiring beauty in your actions.",
-    "The Void": "The void of potential, inviting infinite possibilities.",
-    "The Rooftop": "The flame of courage, empowering you to face fears.",
-    "The Encampment": "The fortress of stability, shielding your dreams.",
-    "The Wall": "The barrier of protection, safeguarding your spirit.",
-    "The Legs": "The stride of progress, propelling you toward goals.",
-    "The Bond": "The tie of connection, uniting you with cosmic allies.",
-    "The Stomach": "The core of resilience, fueling your inner strength.",
-    "The Pleiades": "The cluster of insight, illuminating hidden truths.",
-    "The Net": "The web of opportunity, capturing luck in your path.",
-    "The Beak": "The point of precision, sharpening your focus and will.",
-    "The Three Stars": "The triad of harmony, balancing mind, body, soul.",
-    "The Well": "The source of vitality, nourishing your cosmic energy.",
-    "The Ghost": "The whisper of ancestors, guiding with ancient wisdom.",
-    "The Willow": "The branch of flexibility, bending with life's flow.",
-    "The Star": "The light of destiny, shining on your true purpose.",
-    "The Extended Net": "The reach of ambition, expanding your cosmic horizon.",
-    "The Wings": "The flight of freedom, soaring to new heights.",
-    "The Chariot": "The vehicle of progress, driving you to victory."
+# 神秘描述字典
+mystic_descriptions = {
+    1: "The spark of unity, igniting your unique path to boundless creation and singular purpose.",
+    2: "The dance of duality, harmonizing your heart and mind to forge meaningful connections.",
+    3: "The triad of creativity, weaving inspiration into actions that shape your vibrant destiny.",
+    4: "The foundation of stability, grounding your dreams in a fortress of unwavering resolve.",
+    5: "The pulse of adventure, propelling you toward discoveries that awaken your inner explorer.",
+    6: "The embrace of harmony, nurturing love and balance in your soul’s radiant journey.",
+    7: "The whisper of intuition, guiding you through mysteries to uncover profound truths.",
+    8: "The cycle of abundance, channeling infinite energy to manifest your greatest aspirations.",
+    9: "The beacon of wisdom, illuminating your path with compassion and universal understanding.",
+    10: "The circle of completion, empowering you to fulfill your purpose with bold confidence.",
+    11: "The gateway of enlightenment, opening your spirit to visions of higher consciousness.",
+    12: "The rhythm of growth, aligning your steps with the universe’s eternal flow.",
+    13: "The flame of transformation, sparking renewal to elevate your soul’s potential.",
+    14: "The bridge of connection, uniting your heart with allies on a shared mission.",
+    15: "The surge of courage, emboldening you to conquer fears and seize opportunities.",
+    16: "The pillar of resilience, anchoring your strength to overcome life’s greatest trials.",
+    17: "The star of clarity, shining light on your purpose with unwavering focus.",
+    18: "The tide of vitality, flooding your spirit with energy to thrive and create.",
+    19: "The dawn of inspiration, awakening your soul to bold ideas and grand visions.",
+    20: "The shield of protection, guarding your dreams with unyielding cosmic support.",
+    21: "The spark of innovation, igniting your mind to pioneer new paths forward.",
+    22: "The architect of destiny, building your legacy with precision and purpose.",
+    23: "The pulse of freedom, liberating your spirit to soar to new heights.",
+    24: "The wellspring of joy, nourishing your soul with endless positivity and grace.",
+    25: "The thread of opportunity, weaving luck and success into your journey.",
+    26: "The flame of passion, fueling your heart to pursue dreams with fervor.",
+    27: "The mirror of truth, reflecting your inner strength and authentic purpose.",
+    28: "The current of progress, carrying you swiftly toward your highest goals.",
+    29: "The whisper of eternity, guiding you to embrace your timeless mission.",
+    30: "The crown of fulfillment, honoring your journey with wisdom and triumph.",
+    31: "The light of transcendence, elevating your soul to embrace infinite possibilities."
 }
 
-def get_fallback_mansion(date_str):
-    """对于无效日期，返回一个基于哈希的确定性星宿"""
-    hash_object = hashlib.sha256(date_str.encode())
-    hash_value = int(hash_object.hexdigest(), 16)
-    mansion_index = hash_value % 28
-    mansion_name = list(lunar_mansions_descriptions.keys())[mansion_index]
-    gunicorn_logger.warning(f"Using fallback mansion for {date_str}: {mansion_name}")
-    return mansion_name
-
-def get_lunar_mansion(year, month, day):
-    """根据公历日期返回对应的28星宿名称"""
-    date_str = f"{year:04d}-{month:02d}-{day:02d}"
+def get_mystic_description(day):
+    """根据日期的'日'返回对应的神秘描述"""
     try:
-        # 验证日期
-        datetime(year, month, day)
-        month_idx = month - 1
-        day_idx = day - 1
-        
-        # 检查月份天数
-        if month in [4, 6, 9, 11] and day > 30:
-            gunicorn_logger.error(f"Invalid day {day} for month {month}")
-            return get_fallback_mansion(date_str)
-        if month == 2:
-            is_leap_year = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
-            if (is_leap_year and day > 29) or (not is_leap_year and day > 28):
-                gunicorn_logger.error(f"Invalid day {day} for February in year {year}")
-                return get_fallback_mansion(date_str)
-        if day_idx < 0 or day_idx > 30 or month_idx < 0 or month_idx > 11:
-            gunicorn_logger.error(f"Out of range: month={month}, day={day}")
-            return get_fallback_mansion(date_str)
-        
-        # 确保访问安全
-        if day_idx >= len(LUNAR_MANSIONS) or month_idx >= len(LUNAR_MANSIONS[0]):
-            gunicorn_logger.error(f"Index out of range: day_idx={day_idx}, month_idx={month_idx}")
-            return get_fallback_mansion(date_str)
-        
-        mansion = LUNAR_MANSIONS[day_idx][month_idx]
-        if not mansion or mansion not in lunar_mansions_descriptions:
-            gunicorn_logger.error(f"Invalid mansion: {mansion}")
-            return get_fallback_mansion(date_str)
-        
-        gunicorn_logger.debug(f"Date: {date_str}, Month: {month}, Day: {day}, Mansion: {mansion}")
-        return mansion
-    except Exception as e:
-        gunicorn_logger.error(f"Error processing date {date_str}: {str(e)}")
-        return get_fallback_mansion(date_str)
+        day = int(day)
+        if 1 <= day <= 31:
+            return mystic_descriptions.get(day, "No description available for this day.")
+        else:
+            gunicorn_logger.error(f"Invalid day: {day}")
+            return "Could not calculate your cosmic code for this date."
+    except ValueError as e:
+        gunicorn_logger.error(f"Error processing day {day}: {str(e)}")
+        return "Could not calculate your cosmic code for this date."
 
 # 健康检查端点
 @app.route('/health', methods=['GET'])
@@ -259,8 +191,7 @@ def calculate():
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
+                'mystic_description': "Could not calculate your cosmic code for this date.",
                 'angle': 0
             }), 400
         
@@ -278,8 +209,7 @@ def calculate():
                     'error': error_msg,
                     'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                     'bazi': 'Unknown',
-                    'lunar_mansion': "Unknown",
-                    'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
+                    'mystic_description': "Could not calculate your cosmic code for this date.",
                     'angle': 0
                 }), 400
         except Exception as e:
@@ -289,8 +219,7 @@ def calculate():
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
+                'mystic_description': "Could not calculate your cosmic code for this date.",
                 'angle': 0
             }), 400
         
@@ -305,20 +234,14 @@ def calculate():
                     'error': error_msg,
                     'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                     'bazi': 'Unknown',
-                    'lunar_mansion': "Unknown",
-                    'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
+                    'mystic_description': "Could not calculate your cosmic code for this date.",
                     'angle': 0
                 }), 400
         
         bazi = [f"{heavenly_stems.get(gan, 'Unknown')}{earthly_branches.get(zhi, 'Unknown')}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        lunar_mansion = get_lunar_mansion(year, month, day)
-        if not lunar_mansion or lunar_mansion not in lunar_mansions_descriptions:
-            gunicorn_logger.error(f"Invalid lunar mansion: {lunar_mansion}, falling back")
-            lunar_mansion = get_fallback_mansion(f"{year:04d}-{month:02d}-{day:02d}")
-        
-        lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
+        mystic_description = get_mystic_description(day)
         
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
@@ -339,14 +262,13 @@ def calculate():
 
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems.get(day_master, 'Unknown')}, element={element}, "
-            f"original_angle={original_angle}, adjusted_angle={angle}, lunar_mansion={lunar_mansion}"
+            f"original_angle={original_angle}, adjusted_angle={angle}, mystic_description={mystic_description}"
         )
 
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
-            'lunar_mansion': lunar_mansion,
-            'lunar_mansion_description': lunar_mansion_desc,
+            'mystic_description': mystic_description,
             'angle': angle
         })
 
@@ -357,11 +279,9 @@ def calculate():
             'error': error_msg,
             'lunar_date': 'Unknown',
             'bazi': 'Unknown',
-            'lunar_mansion': "Unknown",
-            'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
+            'mystic_description': "Could not calculate your cosmic code for this date.",
             'angle': 0
         }), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)
-```
