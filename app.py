@@ -190,33 +190,33 @@ def calculate():
             lunar_day = lunar.getDay()
         
         # 验证农历日期有效性
-        if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
-            error_msg = f"Invalid lunar day {lunar_day} for date {year}-{month:02d}-{day:02d}"
+        if not isinstance(lunar_month, int) or not isinstance(lunar_day, int) or lunar_month < 1 or lunar_month > 12 or lunar_day < 1 or lunar_day > 30:
+            error_msg = f"Invalid lunar date: month={lunar_month}, day={lunar_day}"
             gunicorn_logger.error(error_msg)
             return jsonify({
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
-                'constellation': 'Unknown',
+                'constellation': 'Invalid lunar date',
                 'angle': 0
             }), 400
         
-        # 计算二十八星宿
-        try:
-            if lunar_month < 1 or lunar_month > 12 or lunar_day < 1 or lunar_day > 30:
-                constellation = 'Invalid lunar date for constellation'
-            else:
-                chinese_host = CONSTELLATION_TABLE[lunar_day - 1][lunar_month - 1]
-                constellation = CONSTELLATION_TRANSLATIONS.get(chinese_host, 'Unknown')
-            gunicorn_logger.debug(f"Calculated constellation: {constellation} for lunar date {lunar_year}-{lunar_month:02d}-{lunar_day:02d}")
-        except Exception as e:
-            constellation = 'Unknown'
-            gunicorn_logger.error(f"Constellation calculation failed: {str(e)}")
-
         gunicorn_logger.debug(
             f"/calculate solar to lunar success: solar={year}-{month:02d}-{day:02d}, "
             f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
         )
+
+        # 计算二十八星宿
+        try:
+            chinese_host = CONSTELLATION_TABLE[lunar_day - 1][lunar_month - 1]
+            constellation = CONSTELLATION_TRANSLATIONS.get(chinese_host, 'Unknown')
+            gunicorn_logger.debug(f"Constellation found: {chinese_host} -> {constellation}")
+        except IndexError as e:
+            constellation = 'Unknown'
+            gunicorn_logger.error(f"IndexError in constellation table: {str(e)}, lunar_day={lunar_day}, lunar_month={lunar_month}")
+        except Exception as e:
+            constellation = 'Unknown'
+            gunicorn_logger.error(f"Constellation calculation failed: {str(e)}")
 
         # 获取八字
         try:
