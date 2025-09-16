@@ -1,3 +1,4 @@
+```python
 import logging
 logging.basicConfig(level=logging.DEBUG)
 gunicorn_logger = logging.getLogger('gunicorn')
@@ -12,54 +13,40 @@ import hashlib
 app = Flask(__name__)
 CORS(app)
 
-# 公历版 28 星宿查询表
+# 公历版 28 星宿查询表（已翻译为英文）
 LUNAR_MANSIONS = [
-    ["Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu"],
-    ["Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu"],
-    ["Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu"],
-    ["Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu"],
-    ["Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu"],
-    ["Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu"],
-    ["Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu"],
-    ["Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu"],
-    ["Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu"],
-    ["Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu"],
-    ["Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu"],
-    ["Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu"],
-    ["Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu"],
-    ["Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu"],
-    ["Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu"],
-    ["Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu"],
-    ["Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu"],
-    ["Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu"],
-    ["Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu"],
-    ["Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu"],
-    ["Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu"],
-    ["Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu"],
-    ["Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu"],
-    ["Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu"],
-    ["Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu"],
-    ["Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu"],
-    ["Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu"],
-    ["Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu"],
-    ["Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu"],
-    ["Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu"],
-    ["Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu"]
+    ["The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well"],
+    ["The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost"],
+    ["The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow"],
+    ["The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star"],
+    ["The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net"],
+    ["The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings"],
+    ["The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot"],
+    ["The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn"],
+    ["The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck"],
+    ["The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root"],
+    ["The Three Stars", "The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room"],
+    ["The Well", "The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart"],
+    ["The Ghost", "The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail"],
+    ["The Willow", "The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket"],
+    ["The Star", "The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper"],
+    ["The Extended Net", "The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox"],
+    ["The Wings", "The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl"],
+    ["The Chariot", "The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void"],
+    ["The Horn", "The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop"],
+    ["The Neck", "The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment"],
+    ["The Root", "The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall"],
+    ["The Room", "The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs"],
+    ["The Heart", "The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond"],
+    ["The Tail", "The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach"],
+    ["The Winnowing Basket", "The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades"],
+    ["The Dipper", "The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net"],
+    ["The Ox", "The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak"],
+    ["The Girl", "The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars"],
+    ["The Void", "The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well"],
+    ["The Rooftop", "The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost"],
+    ["The Encampment", "The Wall", "The Legs", "The Bond", "The Stomach", "The Pleiades", "The Net", "The Beak", "The Three Stars", "The Well", "The Ghost", "The Willow"]
 ]
-
-# 星宿英文翻译
-CONSTELLATION_TRANSLATIONS = {
-    'Jiao Xiu': 'The Horn', 'Kang Xiu': 'The Neck', 'Di Xiu': 'The Root',
-    'Fang Xiu': 'The Room', 'Xin Xiu': 'The Heart', 'Wei Xiu': 'The Tail',
-    'Ji Xiu': 'The Winnowing Basket', 'Dou Xiu': 'The Dipper', 'Niu Xiu': 'The Ox',
-    'Nü Xiu': 'The Girl', 'Xu Xiu': 'The Void', 'Wei Xiu': 'The Rooftop',
-    'Shi Xiu': 'The Encampment', 'Bi Xiu': 'The Wall', 'Kui Xiu': 'The Legs',
-    'Lou Xiu': 'The Bond', 'Wei Xiu': 'The Stomach', 'Mao Xiu': 'The Pleiades',
-    'Bi Xiu': 'The Net', 'Zui Xiu': 'The Beak', 'Shen Xiu': 'The Three Stars',
-    'Jing Xiu': 'The Well', 'Gui Xiu': 'The Ghost', 'Liu Xiu': 'The Willow',
-    'Xing Xiu': 'The Star', 'Zhang Xiu': 'The Extended Net', 'Yi Xiu': 'The Wings',
-    'Zhen Xiu': 'The Chariot'
-}
 
 # 星宿描述
 lunar_mansions_descriptions = {
@@ -98,29 +85,35 @@ def get_fallback_mansion(date_str):
     hash_object = hashlib.sha256(date_str.encode())
     hash_value = int(hash_object.hexdigest(), 16)
     mansion_index = hash_value % 28
-    mansion_name = list(CONSTELLATION_TRANSLATIONS.keys())[mansion_index]
+    mansion_name = list(lunar_mansions_descriptions.keys())[mansion_index]
     gunicorn_logger.warning(f"Using fallback mansion for {date_str}: {mansion_name}")
     return mansion_name
 
 def get_lunar_mansion(year, month, day):
-    """根据公历日期返回对应的28星宿名称和英文翻译"""
+    """根据公历日期返回对应的28星宿名称"""
     date_str = f"{year:04d}-{month:02d}-{day:02d}"
     try:
         datetime(year, month, day)
         month_idx = month - 1
         day_idx = day - 1
-        if month_idx < 0 or month_idx > 11 or day_idx < 0 or day_idx > 30:
+        # 检查月份天数
+        if month in [4, 6, 9, 11] and day > 30:
+            gunicorn_logger.error(f"Invalid day {day} for month {month}")
+            return get_fallback_mansion(date_str)
+        if month == 2:
+            is_leap_year = year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)
+            if (is_leap_year and day > 29) or (not is_leap_year and day > 28):
+                gunicorn_logger.error(f"Invalid day {day} for February in year {year}")
+                return get_fallback_mansion(date_str)
+        if day_idx < 0 or day_idx > 30 or month_idx < 0 or month_idx > 11:
             gunicorn_logger.error(f"Out of range: month={month}, day={day}")
-            mansion = get_fallback_mansion(date_str)
-            return mansion, CONSTELLATION_TRANSLATIONS.get(mansion, mansion)
+            return get_fallback_mansion(date_str)
         mansion = LUNAR_MANSIONS[day_idx][month_idx]
-        translated_mansion = CONSTELLATION_TRANSLATIONS.get(mansion, mansion)
-        gunicorn_logger.debug(f"Date: {date_str}, Month: {month}, Day: {day}, Mansion: {mansion}, Translated: {translated_mansion}")
-        return mansion, translated_mansion
+        gunicorn_logger.debug(f"Date: {date_str}, Month: {month}, Day: {day}, Mansion: {mansion}")
+        return mansion
     except Exception as e:
         gunicorn_logger.error(f"Error processing date {date_str}: {str(e)}")
-        mansion = get_fallback_mansion(date_str)
-        return mansion, CONSTELLATION_TRANSLATIONS.get(mansion, mansion)
+        return get_fallback_mansion(date_str)
 
 # 健康检查端点
 @app.route('/health', methods=['GET'])
@@ -308,7 +301,7 @@ def calculate():
         bazi = [f"{heavenly_stems.get(gan, 'Unknown')}{earthly_branches.get(zhi, 'Unknown')}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        lunar_mansion, translated_mansion = get_lunar_mansion(year, month, day)
+        lunar_mansion = get_lunar_mansion(year, month, day)
         if not lunar_mansion:
             error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}"
             gunicorn_logger.error(error_msg)
@@ -321,7 +314,7 @@ def calculate():
                 'angle': 0
             }), 400
         
-        lunar_mansion_desc = lunar_mansions_descriptions.get(translated_mansion, "No description available.")
+        lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
         
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
@@ -348,7 +341,7 @@ def calculate():
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
-            'lunar_mansion': translated_mansion,
+            'lunar_mansion': lunar_mansion,
             'lunar_mansion_description': lunar_mansion_desc,
             'angle': angle
         })
@@ -367,3 +360,4 @@ def calculate():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=8080, debug=True)
+```
