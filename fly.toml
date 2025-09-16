@@ -2,7 +2,6 @@ app = "lucky-compass-backend"
 primary_region = "sjc"
 
 [build]
-  builder = "docker"
   dockerfile = "Dockerfile"
 
 [env]
