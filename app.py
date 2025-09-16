@@ -11,72 +11,6 @@ from datetime import datetime
 app = Flask(__name__)
 CORS(app)
 
-# 28星宿及其描述
-CONSTELLATIONS = [
-    ("Jiao Xiu", "Azure Dragon", "Wood"), ("Kang Xiu", "Azure Dragon", "Metal"), ("Di Xiu", "Azure Dragon", "Earth"),
-    ("Fang Xiu", "Azure Dragon", "Wood"), ("Xin Xiu", "Azure Dragon", "Fire"), ("Wei Xiu", "Azure Dragon", "Fire"),
-    ("Ji Xiu", "Azure Dragon", "Water"), ("Dou Xiu", "Black Tortoise", "Wood"), ("Niu Xiu", "Black Tortoise", "Metal"),
-    ("Nü Xiu", "Black Tortoise", "Earth"), ("Xu Xiu", "Black Tortoise", "Water"), ("Wei Xiu", "Black Tortoise", "Water"),
-    ("Shi Xiu", "Black Tortoise", "Fire"), ("Bi Xiu", "Black Tortoise", "Water"), ("Kui Xiu", "White Tiger", "Wood"),
-    ("Lou Xiu", "White Tiger", "Metal"), ("Wei Xiu", "White Tiger", "Earth"), ("Mao Xiu", "White Tiger", "Fire"),
-    ("Bi Xiu", "White Tiger", "Water"), ("Zui Xiu", "White Tiger", "Fire"), ("Shen Xiu", "White Tiger", "Water"),
-    ("Jing Xiu", "Vermilion Bird", "Wood"), ("Gui Xiu", "Vermilion Bird", "Metal"), ("Liu Xiu", "Vermilion Bird", "Earth"),
-    ("Xing Xiu", "Vermilion Bird", "Fire"), ("Zhang Xiu", "Vermilion Bird", "Fire"), ("Yi Xiu", "Vermilion Bird", "Fire"),
-    ("Zhen Xiu", "Vermilion Bird", "Water")
-]
-
-# 星宿英文翻译
-CONSTELLATION_TRANSLATIONS = {
-    'Jiao Xiu': 'The Horn', 'Kang Xiu': 'The Neck', 'Di Xiu': 'The Root',
-    'Fang Xiu': 'The Room', 'Xin Xiu': 'The Heart', 'Wei Xiu': 'The Tail',
-    'Ji Xiu': 'The Winnowing Basket', 'Dou Xiu': 'The Dipper', 'Niu Xiu': 'The Ox',
-    'Nü Xiu': 'The Girl', 'Xu Xiu': 'The Void', 'Wei Xiu': 'The Rooftop',
-    'Shi Xiu': 'The Encampment', 'Bi Xiu': 'The Wall', 'Kui Xiu': 'The Legs',
-    'Lou Xiu': 'The Bond', 'Wei Xiu': 'The Stomach', 'Mao Xiu': 'The Pleiades',
-    'Bi Xiu': 'The Net', 'Zui Xiu': 'The Beak', 'Shen Xiu': 'The Three Stars',
-    'Jing Xiu': 'The Well', 'Gui Xiu': 'The Ghost', 'Liu Xiu': 'The Willow',
-    'Xing Xiu': 'The Star', 'Zhang Xiu': 'The Extended Net', 'Yi Xiu': 'The Wings',
-    'Zhen Xiu': 'The Chariot'
-}
-
-# 星宿描述
-lunar_mansions_descriptions = {
-    "The Horn": "The beacon of ambition, igniting your path to success.",
-    "The Neck": "The guardian of balance, harmonizing your cosmic journey.",
-    "The Root": "The anchor of wisdom, grounding your soul in truth.",
-    "The Room": "The haven of growth, opening doors to new beginnings.",
-    "The Heart": "The star of passion, guiding your heart to cosmic love.",
-    "The Tail": "The spark of transformation, leading you to renewal.",
-    "The Winnowing Basket": "The weave of abundance, attracting prosperity and joy.",
-    "The Dipper": "The ladle of destiny, pouring clarity into your fate.",
-    "The Ox": "The pillar of strength, carrying you through challenges.",
-    "The Girl": "The muse of grace, inspiring beauty in your actions.",
-    "The Void": "The void of potential, inviting infinite possibilities.",
-    "The Rooftop": "The flame of courage, empowering you to face fears.",
-    "The Encampment": "The fortress of stability, shielding your dreams.",
-    "The Wall": "The barrier of protection, safeguarding your spirit.",
-    "The Legs": "The stride of progress, propelling you toward goals.",
-    "The Bond": "The tie of connection, uniting you with cosmic allies.",
-    "The Stomach": "The core of resilience, fueling your inner strength.",
-    "The Pleiades": "The cluster of insight, illuminating hidden truths.",
-    "The Net": "The web of opportunity, capturing luck in your path.",
-    "The Beak": "The point of precision, sharpening your focus and will.",
-    "The Three Stars": "The triad of harmony, balancing mind, body, soul.",
-    "The Well": "The source of vitality, nourishing your cosmic energy.",
-    "The Ghost": "The whisper of ancestors, guiding with ancient wisdom.",
-    "The Willow": "The branch of flexibility, bending with life's flow.",
-    "The Star": "The light of destiny, shining on your true purpose.",
-    "The Extended Net": "The reach of ambition, expanding your cosmic horizon.",
-    "The Wings": "The flight of freedom, soaring to new heights.",
-    "The Chariot": "The vehicle of progress, driving you to victory."
-}
-
-# 健康检查端点
-@app.route('/health', methods=['GET'])
-def health():
-    gunicorn_logger.debug('Health check accessed')
-    return jsonify({'status': 'ok'}), 200
-
 # Heavenly Stems (English mapping)
 heavenly_stems = {
     '甲': 'Jia', '乙': 'Yi', '丙': 'Bing', '丁': 'Ding', 
@@ -112,40 +46,11 @@ DATE_CORRECTIONS = {
     (1976, 12, 3): {'lunar_year': 1976, 'lunar_month': 11, 'lunar_day': 3}
 }
 
-def get_constellation_and_element(year, month, day):
-    """根据公历日期计算对应的28星宿和元素"""
-    try:
-        # 检查是否有特殊日期修正
-        date_key = (year, month, day)
-        if date_key in DATE_CORRECTIONS:
-            lunar_day = DATE_CORRECTIONS[date_key]['lunar_day']
-            gunicorn_logger.debug(f"Applied correction for {year}-{month:02d}-{day:02d}: lunar_day={lunar_day}")
-        else:
-            # 创建公历对象并转换为农历
-            solar = Solar.fromYmd(year, month, day)
-            lunar = solar.getLunar()
-            if not lunar:
-                gunicorn_logger.error(f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date")
-                return None, None
-            lunar_day = lunar.getDay()
-            gunicorn_logger.debug(f"Retrieved lunar_day: {lunar_day} for date {year}-{month:02d}-{day:02d}")
-
-        # 确保 lunar_day 是有效的整数
-        if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
-            gunicorn_logger.error(f"Invalid lunar_day: {lunar_day} for date {year}-{month:02d}-{day:02d}")
-            return None, None
-        
-        # 计算星宿索引
-        constellation_idx = (lunar_day - 1) % 28
-        constellation = CONSTELLATIONS[constellation_idx][0]
-        element = CONSTELLATIONS[constellation_idx][2]
-        # 返回翻译后的星宿名称
-        translated = CONSTELLATION_TRANSLATIONS.get(constellation, constellation)
-        gunicorn_logger.debug(f"Calculated constellation: {translated}, element: {element} for lunar_day: {lunar_day}")
-        return translated, element
-    except Exception as e:
-        gunicorn_logger.error(f"Error calculating constellation for date {year}-{month:02d}-{day:02d}: {str(e)}", exc_info=True)
-        return None, None
+# 健康检查端点
+@app.route('/health', methods=['GET'])
+def health():
+    gunicorn_logger.debug('Health check accessed')
+    return jsonify({'status': 'ok'}), 200
 
 # 八字计算端点
 @app.route('/calculate', methods=['GET'])
@@ -244,8 +149,6 @@ def calculate():
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
                 'angle': 0
             }), 400
         
@@ -264,8 +167,6 @@ def calculate():
                     'error': error_msg,
                     'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                     'bazi': 'Unknown',
-                    'lunar_mansion': "Unknown",
-                    'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
                     'angle': 0
                 }), 400
         except Exception as e:
@@ -275,8 +176,6 @@ def calculate():
                 'error': error_msg,
                 'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                 'bazi': 'Unknown',
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
                 'angle': 0
             }), 400
         
@@ -291,8 +190,6 @@ def calculate():
                     'error': error_msg,
                     'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
                     'bazi': 'Unknown',
-                    'lunar_mansion': "Unknown",
-                    'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
                     'angle': 0
                 }), 400
         
@@ -300,22 +197,6 @@ def calculate():
         bazi = [f"{heavenly_stems.get(gan, 'Unknown')}{earthly_branches.get(zhi, 'Unknown')}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        # 计算28星宿
-        lunar_mansion, _ = get_constellation_and_element(year, month, day)
-        if not lunar_mansion:
-            error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}, lunar day: {lunar_day}"
-            gunicorn_logger.error(error_msg)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': ' '.join(bazi),
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
-                'angle': 0
-            }), 400
-        
-        lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
-        
         # 日主、五行、幸运方向计算
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
@@ -333,19 +214,17 @@ def calculate():
                 angle += 360
         except Exception as e:
             gunicorn_logger.error(f"Timezone adjustment failed: {str(e)}")
-            angle = original_angle  # 使用原始角度作为后备
+            angle = original_angle
 
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems.get(day_master, 'Unknown')}, element={element}, "
-            f"original_angle={original_angle}, adjusted_angle={angle}, lunar_mansion={lunar_mansion}"
+            f"original_angle={original_angle}, adjusted_angle={angle}"
         )
 
         # 返回结果
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
-            'lunar_mansion': lunar_mansion,
-            'lunar_mansion_description': lunar_mansion_desc,
             'angle': angle
         })
 
@@ -356,8 +235,6 @@ def calculate():
             'error': error_msg,
             'lunar_date': 'Unknown',
             'bazi': 'Unknown',
-            'lunar_mansion': "Unknown",
-            'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
             'angle': 0
         }), 400
 
