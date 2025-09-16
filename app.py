@@ -1,322 +1,633 @@
-import logging
-logging.basicConfig(level=logging.DEBUG)
-gunicorn_logger = logging.getLogger('gunicorn')
-gunicorn_logger.setLevel(logging.DEBUG)
+from flask import Flask, request, render_template, url_for, jsonify
 
-from flask import Flask, jsonify, request
-from flask_cors import CORS
+import sqlite3
+
 from lunar_python import Solar, Lunar
-from datetime import datetime
+
+from dateutil.parser import parse
+
+
 
 app = Flask(__name__)
-CORS(app)
 
-# Heavenly Stems (English mapping)
-heavenly_stems = {
-    '甲': 'Jia', '乙': 'Yi', '丙': 'Bing', '丁': 'Ding', 
-    '戊': 'Wu', '己': 'Ji', '庚': 'Geng', '辛': 'Xin', 
-    '壬': 'Ren', '癸': 'Gui'
-}
+app.secret_key = 'your-secret-key'  # Replace with a secure key
 
-# Earthly Branches (English mapping)
-earthly_branches = {
-    '子': 'Zi', '丑': 'Chou', '寅': 'Yin', '卯': 'Mao', 
-    '辰': 'Chen', '巳': 'Si', '午': 'Wu', '未': 'Wei', 
-    '申': 'Shen', '酉': 'You', '戌': 'Xu', '亥': 'Hai'
-}
+app.config['TEMPLATES_AUTO_RELOAD'] = True  # Force reload templates
 
-# Five Elements mapping for stems
-five_elements = {
-    '甲': 'Wood', '乙': 'Wood', '丙': 'Fire', '丁': 'Fire', 
-    '戊': 'Earth', '己': 'Earth', '庚': 'Metal', '辛': 'Metal', 
-    '壬': 'Water', '癸': 'Water'
-}
 
-# Joy Directions based on Five Elements with angles
-joy_directions = {
-    'Wood': {'joy': 'North (Water)', 'angle': 0},
-    'Fire': {'joy': 'East (Wood)', 'angle': 90},
-    'Earth': {'joy': 'South (Fire)', 'angle': 180},
-    'Metal': {'joy': 'South (Earth)', 'angle': 145},
-    'Water': {'joy': 'West (Metal)', 'angle': 270}
-}
 
-# 星宿英文翻译
-CONSTELLATION_TRANSLATIONS = {
-    '角宿': 'The Horn', '亢宿': 'The Neck', '氐宿': 'The Root',
-    '房宿': 'The Room', '心宿': 'The Heart', '尾宿': 'The Tail',
-    '箕宿': 'The Winnowing Basket', '斗宿': 'The Dipper', '牛宿': 'The Ox',
-    '女宿': 'The Girl', '虚宿': 'The Void', '危宿': 'The Rooftop',
-    '室宿': 'The Encampment', '壁宿': 'The Wall', '奎宿': 'The Legs',
-    '娄宿': 'The Bond', '胃宿': 'The Stomach', '昴宿': 'The Pleiades',
-    '毕宿': 'The Net', '觜宿': 'The Beak', '参宿': 'The Three Stars',
-    '井宿': 'The Well', '鬼宿': 'The Ghost', '柳宿': 'The Willow',
-    '星宿': 'The Star', '张宿': 'The Extended Net', '翼宿': 'The Wings',
-    '轸宿': 'The Chariot'
-}
+# SQLite database path
 
-# 二十八星宿表格（30行 x 12列，行对应日期1-30，列对应月份1-12）
-CONSTELLATION_TABLE = [
-    ["虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿"],
-    ["危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿"],
-    ["室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿"],
-    ["壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿"],
-    ["奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿"],
-    ["娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿"],
-    ["胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿"],
-    ["昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿"],
-    ["毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿"],
-    ["觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿"],
-    ["参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿"],
-    ["井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿"],
-    ["鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿"],
-    ["柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿"],
-    ["星宿", "翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿"],
-    ["张宿", "轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿"],
-    ["翼宿", "角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿"],
-    ["轸宿", "亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿"],
-    ["角宿", "氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿"],
-    ["亢宿", "房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿"],
-    ["氐宿", "心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿"],
-    ["房宿", "尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿"],
-    ["心宿", "箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿"],
-    ["尾宿", "斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿"],
-    ["箕宿", "牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿"],
-    ["斗宿", "女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿"],
-    ["牛宿", "虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿"],
-    ["女宿", "危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿"],
-    ["虚宿", "室宿", "奎宿", "胃宿", "毕宿", "参宿", "鬼宿", "星宿", "翼宿", "角宿", "氐宿", "心宿"],
-    ["危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿"]
+DB_PATH = r"D:\xampp\htdocs\zen\luckytown\cities.db"
+
+
+
+# 28 Lunar Mansions and Five Elements
+
+CONSTELLATIONS = [
+
+    ("Jiao Xiu", "Azure Dragon", "Wood"), ("Kang Xiu", "Azure Dragon", "Metal"), ("Di Xiu", "Azure Dragon", "Earth"),
+
+    ("Fang Xiu", "Azure Dragon", "Wood"), ("Xin Xiu", "Azure Dragon", "Fire"), ("Wei Xiu", "Azure Dragon", "Fire"),
+
+    ("Ji Xiu", "Azure Dragon", "Water"), ("Dou Xiu", "Black Tortoise", "Wood"), ("Niu Xiu", "Black Tortoise", "Metal"),
+
+    ("Nü Xiu", "Black Tortoise", "Earth"), ("Xu Xiu", "Black Tortoise", "Water"), ("Wei Xiu", "Black Tortoise", "Water"),
+
+    ("Shi Xiu", "Black Tortoise", "Fire"), ("Bi Xiu", "Black Tortoise", "Water"), ("Kui Xiu", "White Tiger", "Wood"),
+
+    ("Lou Xiu", "White Tiger", "Metal"), ("Wei Xiu", "White Tiger", "Earth"), ("Mao Xiu", "White Tiger", "Fire"),
+
+    ("Bi Xiu", "White Tiger", "Water"), ("Zui Xiu", "White Tiger", "Fire"), ("Shen Xiu", "White Tiger", "Water"),
+
+    ("Jing Xiu", "Vermilion Bird", "Wood"), ("Gui Xiu", "Vermilion Bird", "Metal"), ("Liu Xiu", "Vermilion Bird", "Earth"),
+
+    ("Xing Xiu", "Vermilion Bird", "Fire"), ("Zhang Xiu", "Vermilion Bird", "Fire"), ("Yi Xiu", "Vermilion Bird", "Fire"),
+
+    ("Zhen Xiu", "Vermilion Bird", "Water")
+
 ]
 
-def get_star_host(month, day):
-    """
-    根据农历月份和日期返回对应的二十八星宿英文名称。
-    :param month: 农历月份 (1-12)
-    :param day: 农历日期 (1-30)
-    :return: 星宿英文名称 或 "Invalid date"
-    """
-    if month < 1 or month > 12 or day < 1 or day > 30:
-        return "Invalid date"
-    chinese_host = CONSTELLATION_TABLE[day - 1][month - 1]  # 表格索引修正
-    return CONSTELLATION_TRANSLATIONS.get(chinese_host, "Unknown")
 
-# 特殊日期修正（临时解决方案）
-DATE_CORRECTIONS = {
-    (1976, 12, 3): {'lunar_year': 1976, 'lunar_month': 11, 'lunar_day': 3}
+
+# Five Elements with weights
+
+FIVE_ELEMENTS = {
+
+    'Wood': {'generates': ['Fire'], 'destroys': ['Metal'], 'same': ['Wood'], 'weight': 0.8},
+
+    'Fire': {'generates': ['Earth'], 'destroys': ['Water'], 'same': ['Fire'], 'weight': 0.7},
+
+    'Earth': {'generates': ['Metal'], 'destroys': ['Wood'], 'same': ['Earth'], 'weight': 0.6},
+
+    'Metal': {'generates': ['Water'], 'destroys': ['Fire'], 'same': ['Metal'], 'weight': 0.7},
+
+    'Water': {'generates': ['Wood'], 'destroys': ['Earth'], 'same': ['Water'], 'weight': 0.6}
+
 }
 
-# 健康检查端点
-@app.route('/health', methods=['GET'])
-def health():
-    gunicorn_logger.debug('Health check accessed')
-    return jsonify({'status': 'ok'}), 200
 
-# 八字和星宿计算端点
-@app.route('/calculate', methods=['GET'])
-def calculate():
-    received_year = request.args.get('year')
-    received_month = request.args.get('month')
-    received_day = request.args.get('day')
-    received_hour = request.args.get('hour')
-    received_minute = request.args.get('minute')
-    received_timezone = request.args.get('timezone', '8')
-    
-    gunicorn_logger.debug(
-        f"Received GET /calculate with params: year={received_year}, month={received_month}, day={received_day}, "
-        f"hour={received_hour}, minute={received_minute}, timezone={received_timezone}"
-    )
+
+# Template filter for constellation translation
+
+@app.template_filter('translate_constellation')
+
+def translate_constellation(constellation):
+
+    translations = {
+
+        'Jiao Xiu': 'The Horn', 'Kang Xiu': 'The Neck', 'Di Xiu': 'The Root',
+
+        'Fang Xiu': 'The Room', 'Xin Xiu': 'The Heart', 'Wei Xiu': 'The Tail',
+
+        'Ji Xiu': 'The Winnowing Basket', 'Dou Xiu': 'The Dipper', 'Niu Xiu': 'The Ox',
+
+        'Nü Xiu': 'The Girl', 'Xu Xiu': 'The Void', 'Wei Xiu': 'The Rooftop',
+
+        'Shi Xiu': 'The Encampment', 'Bi Xiu': 'The Wall', 'Kui Xiu': 'The Legs',
+
+        'Lou Xiu': 'The Bond', 'Wei Xiu': 'The Stomach', 'Mao Xiu': 'The Pleiades',
+
+        'Bi Xiu': 'The Net', 'Zui Xiu': 'The Beak', 'Shen Xiu': 'The Three Stars',
+
+        'Jing Xiu': 'The Well', 'Gui Xiu': 'The Ghost', 'Liu Xiu': 'The Willow',
+
+        'Xing Xiu': 'The Star', 'Zhang Xiu': 'The Extended Net', 'Yi Xiu': 'The Wings',
+
+        'Zhen Xiu': 'The Chariot'
+
+    }
+
+    return translations.get(constellation, constellation)
+
+
+
+# Calculate Bazi (Heavenly Stem for user element)
+
+def calculate_bazi(date_str):
 
     try:
-        # 参数校验
-        if not (received_year and received_month and received_day):
-            error_msg = 'Missing required parameters: year, month, or day cannot be empty'
-            gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg}), 400
-        
-        year = int(received_year)
-        month = int(received_month)
-        day = int(received_day)
-        
-        if year < 1900 or year > 2025:
-            error_msg = 'Year must be between 1900 and 2025'
-            return jsonify({'error': error_msg}), 400
-        if month < 1 or month > 12:
-            error_msg = 'Month must be between 1 and 12'
-            return jsonify({'error': error_msg}), 400
-        if day < 1 or day > 31:
-            error_msg = 'Day must be between 1 and 31'
-            return jsonify({'error': error_msg}), 400
 
-        # 验证日期有效性
-        try:
-            datetime(year, month, day)
-        except ValueError as e:
-            error_msg = f'Invalid date: {str(e)}'
-            gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg}), 400
+        year, month, day = map(int, date_str.split('-'))
 
-        # 处理可选的时间参数
-        hour = None
-        minute = None
-        if received_hour:
-            try:
-                hour = int(received_hour)
-                if hour < 0 or hour > 23:
-                    raise ValueError("Hour out of range 0-23")
-            except ValueError as e:
-                error_msg = f'Invalid hour: {str(e)}'
-                return jsonify({'error': error_msg}), 400
-        if received_minute:
-            try:
-                minute = int(received_minute)
-                if minute < 0 or minute > 59:
-                    raise ValueError("Minute out of range 0-59")
-            except ValueError as e:
-                error_msg = f'Invalid minute: {str(e)}'
-                return jsonify({'error': error_msg}), 400
+        solar = Solar.fromYmd(year, month, day)
 
-        # 创建公历对象并转换为农历
-        try:
-            solar = Solar.fromYmd(year, month, day)
-            lunar = solar.getLunar()
-            if not lunar:
-                error_msg = f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date"
-                gunicorn_logger.error(error_msg)
-                return jsonify({'error': error_msg}), 400
-        except Exception as e:
-            error_msg = f"Lunar conversion failed for {year}-{month:02d}-{day:02d}: {str(e)}"
-            gunicorn_logger.error(error_msg, exc_info=True)
-            return jsonify({'error': error_msg}), 400
-        
-        # 检查是否有特殊日期修正
-        date_key = (year, month, day)
-        if date_key in DATE_CORRECTIONS:
-            lunar_year = DATE_CORRECTIONS[date_key]['lunar_year']
-            lunar_month = DATE_CORRECTIONS[date_key]['lunar_month']
-            lunar_day = DATE_CORRECTIONS[date_key]['lunar_day']
-            gunicorn_logger.debug(f"Applied lunar date correction: {lunar_year}-{lunar_month:02d}-{lunar_day:02d}")
-        else:
-            lunar_year = lunar.getYear()
-            lunar_month = lunar.getMonth()
-            lunar_day = lunar.getDay()
-        
-        # 处理闰月 - 只取月份数字，忽略闰月标记
-        if isinstance(lunar_month, str) and lunar_month.startswith('闰'):
-            lunar_month = int(lunar_month[1:])
-        lunar_month = int(lunar_month)
-        lunar_day = int(lunar_day)
-        
-        # 验证农历日期有效性
-        if lunar_month < 1 or lunar_month > 12 or lunar_day < 1 or lunar_day > 30:
-            error_msg = f"Invalid lunar date: month={lunar_month}, day={lunar_day}"
-            gunicorn_logger.error(error_msg)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': 'Unknown',
-                'constellation': 'Invalid lunar date',
-                'angle': 0
-            }), 400
-        
-        gunicorn_logger.debug(
-            f"/calculate solar to lunar success: solar={year}-{month:02d}-{day:02d}, "
-            f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
-        )
+        lunar = solar.getLunar()
 
-        # 计算二十八星宿 - 使用新的get_star_host函数
-        try:
-            constellation = get_star_host(lunar_month, lunar_day)
-            gunicorn_logger.debug(f"Constellation found: {constellation}")
-        except Exception as e:
-            constellation = 'Unknown'
-            gunicorn_logger.error(f"Constellation calculation failed: {str(e)}")
+        bazi = lunar.getEightChar()
 
-        # 获取八字
-        try:
-            ba = lunar.getEightChar()
-            if not ba:
-                error_msg = f"Failed to get Eight Characters (BaZi) for lunar date {lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
-                gunicorn_logger.error(error_msg)
-                return jsonify({
-                    'error': error_msg,
-                    'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                    'bazi': 'Unknown',
-                    'constellation': constellation,
-                    'angle': 0
-                }), 400
-        except Exception as e:
-            error_msg = f"BaZi calculation failed for {year}-{month:02d}-{day:02d}: {str(e)}"
-            gunicorn_logger.error(error_msg, exc_info=True)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': 'Unknown',
-                'constellation': constellation,
-                'angle': 0
-            }), 400
-        
-        gans = [ba.getYearGan(), ba.getMonthGan(), ba.getDayGan()]
-        zhis = [ba.getYearZhi(), ba.getMonthZhi(), ba.getDayZhi()]
-        
-        for i, (gan, zhi) in enumerate(zip(gans, zhis)):
-            if not gan or not zhi:
-                error_msg = f"Invalid BaZi component at index {i}: gan={gan}, zhi={zhi}"
-                gunicorn_logger.error(error_msg)
-                return jsonify({
-                    'error': error_msg,
-                    'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                    'bazi': 'Unknown',
-                    'constellation': constellation,
-                    'angle': 0
-                }), 400
-        
-        # 生成八字英文标识
-        bazi = [f"{heavenly_stems.get(gan, 'Unknown')}{earthly_branches.get(zhi, 'Unknown')}" for gan, zhi in zip(gans, zhis)]
-        gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
+        day_stem = bazi.getDayGan()
 
-        # 日主、五行、幸运方向计算
-        day_master = gans[2]
-        element = five_elements.get(day_master, 'Unknown')
-        original_angle = joy_directions.get(element, {'angle': 0})['angle']
+        gan_to_element = {
 
-        # 时区调整
-        try:
-            benchmark_offset = 8.0
-            user_offset = float(received_timezone)
-            diff_hours = user_offset - benchmark_offset
-            adjustment = diff_hours * 15
-            angle = round(original_angle + adjustment, 2)
-            angle = angle % 360
-            if angle < 0:
-                angle += 360
-        except Exception as e:
-            gunicorn_logger.error(f"Timezone adjustment failed: {str(e)}")
-            angle = original_angle
+            "甲": "Wood", "乙": "Wood", "丙": "Fire", "丁": "Fire", "戊": "Earth",
 
-        gunicorn_logger.debug(
-            f"/calculate result: day_master={heavenly_stems.get(day_master, 'Unknown')}, element={element}, "
-            f"original_angle={original_angle}, adjusted_angle={angle}"
-        )
+            "己": "Earth", "庚": "Metal", "辛": "Metal", "壬": "Water", "癸": "Water"
 
-        # 返回结果
-        return jsonify({
-            'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-            'bazi': ' '.join(bazi),
-            'constellation': constellation,
-            'angle': angle
-        })
+        }
+
+        return day_stem, gan_to_element.get(day_stem, "Water")
 
     except Exception as e:
-        error_msg = f'Calculation failed for {year}-{month:02d}-{day:02d}: {str(e)}'
-        gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)
-        return jsonify({
-            'error': error_msg,
-            'lunar_date': 'Unknown',
-            'bazi': 'Unknown',
-            'constellation': 'Unknown',
-            'angle': 0
-        }), 400
+
+        print(f"Bazi calculation error ({date_str}): {e}")
+
+        return None, None
+
+
+
+# Get constellation (for cities) and element (for user)
+
+def get_constellation_and_element(date_str, for_user=False):
+
+    if not date_str:
+
+        return None, None
+
+    try:
+
+        solar = Solar.fromYmd(*map(int, date_str.split('-')))
+
+        lunar = solar.getLunar()
+
+        lunar_day = lunar.getDay()
+
+        constellation_idx = (lunar_day - 1) % 28
+
+        constellation = CONSTELLATIONS[constellation_idx][0]
+
+        if for_user:
+
+            # For user, element comes from Bazi day stem
+
+            day_stem, element = calculate_bazi(date_str)
+
+        else:
+
+            # For cities, element comes from constellation
+
+            element = CONSTELLATIONS[constellation_idx][2]
+
+        return constellation, element
+
+    except (ValueError, IndexError, TypeError) as e:
+
+        print(f"Date parsing error ({date_str}): {e}")
+
+        return None, None
+
+    except Exception as e:
+
+        print(f"Unknown error processing date ({date_str}): {e}")
+
+        return None, None
+
+
+
+# Calculate match score
+
+def calculate_match_score(user_element, user_const, city_element, city_const):
+
+    if user_element is None or city_element is None:
+
+        return 50
+
+    if city_element in FIVE_ELEMENTS[user_element]['generates']:
+
+        base_score = 90
+
+    elif city_element in FIVE_ELEMENTS[user_element]['same']:
+
+        base_score = 75
+
+    elif city_element in FIVE_ELEMENTS[user_element]['destroys']:
+
+        base_score = 30
+
+    else:
+
+        base_score = 50
+
+    constellation_bonus = 15 if city_const in ["Jiao Xiu", "Dou Xiu", "Kui Xiu", "Jing Xiu"] else 0
+
+    user_weight = FIVE_ELEMENTS.get(user_element, {}).get('weight', 0.7)
+
+    city_weight = FIVE_ELEMENTS.get(city_element, {}).get('weight', 0.7)
+
+    strength_bonus = round((user_weight + city_weight - 1.2) * 25)
+
+    final_score = base_score + constellation_bonus + strength_bonus
+
+    return max(0, min(round(final_score), 99))
+
+
+
+# Get countries and states
+
+def get_countries_and_states():
+
+    try:
+
+        with sqlite3.connect(DB_PATH) as conn:
+
+            cursor = conn.cursor()
+
+            cursor.execute("SELECT DISTINCT country FROM cities WHERE country IS NOT NULL ORDER BY country")
+
+            countries = [row[0] for row in cursor.fetchall()]
+
+            country_to_states = {}
+
+            for country in countries:
+
+                cursor.execute("""
+
+                    SELECT DISTINCT state_country 
+
+                    FROM cities 
+
+                    WHERE country = ? 
+
+                    AND state_country IS NOT NULL 
+
+                    AND state_country != 'Unknown' 
+
+                    ORDER BY state_country
+
+                """, (country,))
+
+                states = [row[0] for row in cursor.fetchall()]
+
+                country_to_states[country] = states
+
+        return countries, country_to_states
+
+    except sqlite3.Error as e:
+
+        print(f"Database error: {e}")
+
+        return [], {}
+
+
+
+# Validate date
+
+def validate_date(date_str):
+
+    try:
+
+        parsed_date = parse(date_str)
+
+        return parsed_date.strftime('%Y-%m-%d') == date_str
+
+    except ValueError:
+
+        return False
+
+
+
+# Get paginated cities
+
+def get_paginated_cities(selected_country, selected_state, page, user_element, user_const, sort_order='desc'):
+
+    try:
+
+        page_size = 10
+
+        offset = (page - 1) * page_size
+
+        with sqlite3.connect(DB_PATH) as conn:
+
+            cursor = conn.cursor()
+
+            query = """
+
+                SELECT name, country, state_country, incorporation_date, description 
+
+                FROM cities 
+
+                WHERE incorporation_date IS NOT NULL
+
+            """
+
+            params = []
+
+            if selected_country != 'All':
+
+                query += " AND country = ?"
+
+                params.append(selected_country)
+
+            if selected_state != 'All':
+
+                query += " AND state_country = ?"
+
+                params.append(selected_state)
+
+            count_query = f"SELECT COUNT(*) FROM ({query})"
+
+            cursor.execute(count_query, params)
+
+            total_matches = cursor.fetchone()[0]
+
+            query += " ORDER BY name LIMIT ? OFFSET ?"
+
+            params.extend([page_size, offset])
+
+            cursor.execute(query, params)
+
+            cities = cursor.fetchall()
+
+            cities_list = []
+
+            for city in cities:
+
+                name, country, state_country, incorporation_date, description = city
+
+                city_const, city_element = get_constellation_and_element(incorporation_date, for_user=False)
+
+                match_score = calculate_match_score(user_element, user_const, city_element, city_const)
+
+                cities_list.append({
+
+                    'name': name,
+
+                    'country': country,
+
+                    'state_country': state_country,
+
+                    'incorporation_date': incorporation_date,
+
+                    'description': description,
+
+                    'match_score': match_score,
+
+                    'constellation': city_const,
+
+                    'element': city_element
+
+                })
+
+            cities_list.sort(key=lambda x: x['match_score'], reverse=(sort_order == 'desc'))
+
+        return cities_list, total_matches
+
+    except sqlite3.Error as e:
+
+        print(f"Database query error: {e}")
+
+        return [], 0
+
+
+
+# Main route
+
+@app.route('/', methods=['GET', 'POST'])
+
+@app.route('/match_cities', methods=['GET', 'POST'])
+
+def index():
+
+    birth_date = ''
+
+    selected_country = 'All'
+
+    selected_state = 'All'
+
+    manual_city = ''
+
+    manual_date = ''
+
+    cities = []
+
+    manual_result = None
+
+    total_matches = 0
+
+    user_const = None
+
+    user_element = None
+
+    error = None
+
+    sort_order = request.args.get('sort', 'desc')
+
+    page = int(request.args.get('page', 1))
+
+    countries, country_to_states = get_countries_and_states()
+
+    small_countries = ['Hong Kong', 'Singapore']
+
+    states = ['All']
+
+
+
+    if request.method == 'POST':
+
+        birth_date = request.form.get('birth_date', '').strip()
+
+        selected_country = request.form.get('country', 'All')
+
+        selected_state = request.form.get('state_country', 'All')
+
+        manual_city = request.form.get('manual_city', '').strip()
+
+        manual_date = request.form.get('manual_date', '').strip()
+
+        page = int(request.args.get('page', 1))
+
+        sort_order = request.args.get('sort', sort_order)
+
+        if selected_country != 'All' and selected_country not in small_countries:
+
+            states = ['All'] + country_to_states.get(selected_country, [])
+
+        elif selected_country in small_countries:
+
+            states = ['All']
+
+        if not birth_date:
+
+            error = 'Please enter your birth date (e.g., 19900515).'
+
+        elif not validate_date(birth_date):
+
+            error = 'Invalid date format. Please use YYYYMMDD (e.g., 19900515).'
+
+        else:
+
+            user_const, user_element = get_constellation_and_element(birth_date, for_user=True)
+
+            if not user_const:
+
+                error = 'Invalid birth date. Please use YYYYMMDD (e.g., 19900515).'
+
+        if manual_city and manual_date and not error:
+
+            if not validate_date(manual_date):
+
+                error = 'Invalid city founding date. Please use YYYYMMDD (e.g., 18680903).'
+
+            else:
+
+                manual_const, manual_element = get_constellation_and_element(manual_date, for_user=False)
+
+                if manual_const:
+
+                    manual_score = calculate_match_score(user_element, user_const, manual_element, manual_const)
+
+                    manual_result = {
+
+                        'city': manual_city,
+
+                        'date': manual_date,
+
+                        'score': manual_score,
+
+                        'constellation': manual_const,
+
+                        'element': manual_element
+
+                    }
+
+                else:
+
+                    error = 'Invalid city founding date. Please use YYYYMMDD (e.g., 18680903).'
+
+        if not error:
+
+            cities, total_matches = get_paginated_cities(
+
+                selected_country, 
+
+                selected_state, 
+
+                page, 
+
+                user_element, 
+
+                user_const,
+
+                sort_order
+
+            )
+
+    elif request.method == 'GET' and (request.args.get('birth_date') or birth_date):
+
+        birth_date = request.args.get('birth_date', birth_date)
+
+        selected_country = request.args.get('country', selected_country)
+
+        selected_state = request.args.get('state_country', selected_state)
+
+        page = int(request.args.get('page', page))
+
+        sort_order = request.args.get('sort', sort_order)
+
+        if selected_country != 'All' and selected_country not in small_countries:
+
+            states = ['All'] + country_to_states.get(selected_country, [])
+
+        elif selected_country in small_countries:
+
+            states = ['All']
+
+        if not validate_date(birth_date):
+
+            error = 'Invalid date format. Please use YYYYMMDD (e.g., 19900515).'
+
+        else:
+
+            user_const, user_element = get_constellation_and_element(birth_date, for_user=True)
+
+            if not user_const:
+
+                error = 'Invalid birth date. Please use YYYYMMDD (e.g., 19900515).'
+
+        if not error:
+
+            cities, total_matches = get_paginated_cities(
+
+                selected_country, 
+
+                selected_state, 
+
+                page, 
+
+                user_element, 
+
+                user_const,
+
+                sort_order
+
+            )
+
+    print(f"Request: {request.method}, Page: {page}, Sort: {sort_order}, Birth Date: {birth_date}")
+
+    return render_template('lucky_city_page.html', 
+
+        cities=cities, 
+
+        page=page, 
+
+        total_matches=total_matches,
+
+        birth_date=birth_date, 
+
+        selected_country=selected_country, 
+
+        selected_state=selected_state,
+
+        manual_city=manual_city, 
+
+        manual_date=manual_date, 
+
+        manual_result=manual_result,
+
+        countries=countries, 
+
+        states=states, 
+
+        user_const=user_const, 
+
+        user_element=user_element,
+
+        error=error,
+
+        country_to_states=country_to_states, 
+
+        small_countries=small_countries,
+
+        sort_order=sort_order
+
+    )
+
+
+
+# Debug route
+
+@app.route('/routes')
+
+def show_routes():
+
+    routes = []
+
+    for rule in app.url_map.iter_rules():
+
+        routes.append({
+
+            'endpoint': rule.endpoint,
+
+            'methods': list(rule.methods),
+
+            'rule': str(rule)
+
+        })
+
+    return jsonify(routes)
+
+
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+
+    app.run(debug=True, host='127.0.0.1', port=5000)
