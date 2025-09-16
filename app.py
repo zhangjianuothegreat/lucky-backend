@@ -7,22 +7,44 @@ from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lunar_python import Solar, Lunar
 from datetime import datetime
+import hashlib
 
 app = Flask(__name__)
 CORS(app)
 
-# 28星宿及其描述
-CONSTELLATIONS = [
-    ("Jiao Xiu", "Azure Dragon", "Wood"), ("Kang Xiu", "Azure Dragon", "Metal"), ("Di Xiu", "Azure Dragon", "Earth"),
-    ("Fang Xiu", "Azure Dragon", "Wood"), ("Xin Xiu", "Azure Dragon", "Fire"), ("Wei Xiu", "Azure Dragon", "Fire"),
-    ("Ji Xiu", "Azure Dragon", "Water"), ("Dou Xiu", "Black Tortoise", "Wood"), ("Niu Xiu", "Black Tortoise", "Metal"),
-    ("Nü Xiu", "Black Tortoise", "Earth"), ("Xu Xiu", "Black Tortoise", "Water"), ("Wei Xiu", "Black Tortoise", "Water"),
-    ("Shi Xiu", "Black Tortoise", "Fire"), ("Bi Xiu", "Black Tortoise", "Water"), ("Kui Xiu", "White Tiger", "Wood"),
-    ("Lou Xiu", "White Tiger", "Metal"), ("Wei Xiu", "White Tiger", "Earth"), ("Mao Xiu", "White Tiger", "Fire"),
-    ("Bi Xiu", "White Tiger", "Water"), ("Zui Xiu", "White Tiger", "Fire"), ("Shen Xiu", "White Tiger", "Water"),
-    ("Jing Xiu", "Vermilion Bird", "Wood"), ("Gui Xiu", "Vermilion Bird", "Metal"), ("Liu Xiu", "Vermilion Bird", "Earth"),
-    ("Xing Xiu", "Vermilion Bird", "Fire"), ("Zhang Xiu", "Vermilion Bird", "Fire"), ("Yi Xiu", "Vermilion Bird", "Fire"),
-    ("Zhen Xiu", "Vermilion Bird", "Water")
+# 公历版 28 星宿查询表
+LUNAR_MANSIONS = [
+    ["Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu"],
+    ["Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu"],
+    ["Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu"],
+    ["Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu"],
+    ["Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu"],
+    ["Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu"],
+    ["Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu"],
+    ["Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu"],
+    ["Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu"],
+    ["Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu"],
+    ["Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu"],
+    ["Jing Xiu", "Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu"],
+    ["Gui Xiu", "Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu"],
+    ["Liu Xiu", "Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu"],
+    ["Xing Xiu", "Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu"],
+    ["Zhang Xiu", "Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu"],
+    ["Yi Xiu", "Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu"],
+    ["Zhen Xiu", "Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu"],
+    ["Jiao Xiu", "Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu"],
+    ["Kang Xiu", "Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu"],
+    ["Di Xiu", "Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu"],
+    ["Fang Xiu", "Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu"],
+    ["Xin Xiu", "Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu"],
+    ["Wei Xiu", "Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu"],
+    ["Ji Xiu", "Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu"],
+    ["Dou Xiu", "Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu"],
+    ["Niu Xiu", "Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu"],
+    ["Nü Xiu", "Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu"],
+    ["Xu Xiu", "Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu"],
+    ["Wei Xiu", "Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu"],
+    ["Shi Xiu", "Bi Xiu", "Kui Xiu", "Lou Xiu", "Wei Xiu", "Mao Xiu", "Bi Xiu", "Zui Xiu", "Shen Xiu", "Jing Xiu", "Gui Xiu", "Liu Xiu"]
 ]
 
 # 星宿英文翻译
@@ -71,6 +93,35 @@ lunar_mansions_descriptions = {
     "The Chariot": "The vehicle of progress, driving you to victory."
 }
 
+def get_fallback_mansion(date_str):
+    """对于无效日期，返回一个基于哈希的确定性星宿"""
+    hash_object = hashlib.sha256(date_str.encode())
+    hash_value = int(hash_object.hexdigest(), 16)
+    mansion_index = hash_value % 28
+    mansion_name = list(CONSTELLATION_TRANSLATIONS.keys())[mansion_index]
+    gunicorn_logger.warning(f"Using fallback mansion for {date_str}: {mansion_name}")
+    return mansion_name
+
+def get_lunar_mansion(year, month, day):
+    """根据公历日期返回对应的28星宿名称和英文翻译"""
+    date_str = f"{year:04d}-{month:02d}-{day:02d}"
+    try:
+        datetime(year, month, day)
+        month_idx = month - 1
+        day_idx = day - 1
+        if month_idx < 0 or month_idx > 11 or day_idx < 0 or day_idx > 30:
+            gunicorn_logger.error(f"Out of range: month={month}, day={day}")
+            mansion = get_fallback_mansion(date_str)
+            return mansion, CONSTELLATION_TRANSLATIONS.get(mansion, mansion)
+        mansion = LUNAR_MANSIONS[day_idx][month_idx]
+        translated_mansion = CONSTELLATION_TRANSLATIONS.get(mansion, mansion)
+        gunicorn_logger.debug(f"Date: {date_str}, Month: {month}, Day: {day}, Mansion: {mansion}, Translated: {translated_mansion}")
+        return mansion, translated_mansion
+    except Exception as e:
+        gunicorn_logger.error(f"Error processing date {date_str}: {str(e)}")
+        mansion = get_fallback_mansion(date_str)
+        return mansion, CONSTELLATION_TRANSLATIONS.get(mansion, mansion)
+
 # 健康检查端点
 @app.route('/health', methods=['GET'])
 def health():
@@ -112,41 +163,6 @@ DATE_CORRECTIONS = {
     (1976, 12, 3): {'lunar_year': 1976, 'lunar_month': 11, 'lunar_day': 3}
 }
 
-def get_constellation_and_element(year, month, day):
-    """根据公历日期计算对应的28星宿和元素"""
-    try:
-        # 检查是否有特殊日期修正
-        date_key = (year, month, day)
-        if date_key in DATE_CORRECTIONS:
-            lunar_day = DATE_CORRECTIONS[date_key]['lunar_day']
-            gunicorn_logger.debug(f"Applied correction for {year}-{month:02d}-{day:02d}: lunar_day={lunar_day}")
-        else:
-            # 创建公历对象并转换为农历
-            solar = Solar.fromYmd(year, month, day)
-            lunar = solar.getLunar()
-            if not lunar:
-                gunicorn_logger.error(f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date")
-                return None, None
-            lunar_day = lunar.getDay()
-            gunicorn_logger.debug(f"Retrieved lunar_day: {lunar_day} for date {year}-{month:02d}-{day:02d}")
-
-        # 确保 lunar_day 是有效的整数
-        if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
-            gunicorn_logger.error(f"Invalid lunar_day: {lunar_day} for date {year}-{month:02d}-{day:02d}")
-            return None, None
-        
-        # 计算星宿索引
-        constellation_idx = (lunar_day - 1) % 28
-        constellation = CONSTELLATIONS[constellation_idx][0]
-        element = CONSTELLATIONS[constellation_idx][2]
-        # 返回翻译后的星宿名称
-        translated = CONSTELLATION_TRANSLATIONS.get(constellation, constellation)
-        gunicorn_logger.debug(f"Calculated constellation: {translated}, element: {element} for lunar_day: {lunar_day}")
-        return translated, element
-    except Exception as e:
-        gunicorn_logger.error(f"Error calculating constellation for date {year}-{month:02d}-{day:02d}: {str(e)}", exc_info=True)
-        return None, None
-
 # 八字计算端点
 @app.route('/calculate', methods=['GET'])
 def calculate():
@@ -163,7 +179,6 @@ def calculate():
     )
 
     try:
-        # 参数校验
         if not (received_year and received_month and received_day):
             error_msg = 'Missing required parameters: year, month, or day cannot be empty'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
@@ -183,7 +198,6 @@ def calculate():
             error_msg = 'Day must be between 1 and 31'
             return jsonify({'error': error_msg}), 400
 
-        # 验证日期有效性
         try:
             datetime(year, month, day)
         except ValueError as e:
@@ -191,7 +205,6 @@ def calculate():
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
             return jsonify({'error': error_msg}), 400
 
-        # 处理可选的时间参数
         hour = None
         minute = None
         if received_hour:
@@ -211,7 +224,6 @@ def calculate():
                 error_msg = f'Invalid minute: {str(e)}'
                 return jsonify({'error': error_msg}), 400
 
-        # 创建公历对象并转换为农历
         try:
             solar = Solar.fromYmd(year, month, day)
             lunar = solar.getLunar()
@@ -224,7 +236,6 @@ def calculate():
             gunicorn_logger.error(error_msg, exc_info=True)
             return jsonify({'error': error_msg}), 400
         
-        # 检查是否有特殊日期修正
         date_key = (year, month, day)
         if date_key in DATE_CORRECTIONS:
             lunar_year = DATE_CORRECTIONS[date_key]['lunar_year']
@@ -236,7 +247,6 @@ def calculate():
             lunar_month = lunar.getMonth()
             lunar_day = lunar.getDay()
         
-        # 验证农历日期有效性
         if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
             error_msg = f"Invalid lunar day {lunar_day} for date {year}-{month:02d}-{day:02d}"
             gunicorn_logger.error(error_msg)
@@ -254,7 +264,6 @@ def calculate():
             f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
         )
 
-        # 获取八字
         try:
             ba = lunar.getEightChar()
             if not ba:
@@ -296,14 +305,12 @@ def calculate():
                     'angle': 0
                 }), 400
         
-        # 生成八字英文标识
         bazi = [f"{heavenly_stems.get(gan, 'Unknown')}{earthly_branches.get(zhi, 'Unknown')}" for gan, zhi in zip(gans, zhis)]
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
-        # 计算28星宿
-        lunar_mansion, _ = get_constellation_and_element(year, month, day)
+        lunar_mansion, translated_mansion = get_lunar_mansion(year, month, day)
         if not lunar_mansion:
-            error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}, lunar day: {lunar_day}"
+            error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}"
             gunicorn_logger.error(error_msg)
             return jsonify({
                 'error': error_msg,
@@ -314,14 +321,12 @@ def calculate():
                 'angle': 0
             }), 400
         
-        lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
+        lunar_mansion_desc = lunar_mansions_descriptions.get(translated_mansion, "No description available.")
         
-        # 日主、五行、幸运方向计算
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
         original_angle = joy_directions.get(element, {'angle': 0})['angle']
 
-        # 时区调整
         try:
             benchmark_offset = 8.0
             user_offset = float(received_timezone)
@@ -333,18 +338,17 @@ def calculate():
                 angle += 360
         except Exception as e:
             gunicorn_logger.error(f"Timezone adjustment failed: {str(e)}")
-            angle = original_angle  # 使用原始角度作为后备
+            angle = original_angle
 
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems.get(day_master, 'Unknown')}, element={element}, "
             f"original_angle={original_angle}, adjusted_angle={angle}, lunar_mansion={lunar_mansion}"
         )
 
-        # 返回结果
         return jsonify({
             'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
             'bazi': ' '.join(bazi),
-            'lunar_mansion': lunar_mansion,
+            'lunar_mansion': translated_mansion,
             'lunar_mansion_description': lunar_mansion_desc,
             'angle': angle
         })
