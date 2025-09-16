@@ -48,14 +48,18 @@ mystic_descriptions = {
 
 def get_mystic_description(day):
     """根据日期的'日'返回对应的神秘描述"""
+    gunicorn_logger.debug(f"Processing day: {day}, type: {type(day)}")
     try:
         day = int(day)
+        gunicorn_logger.debug(f"Converted day to int: {day}")
         if 1 <= day <= 31:
-            return mystic_descriptions.get(day, "No description available for this day.")
+            description = mystic_descriptions.get(day, "No description available for this day.")
+            gunicorn_logger.debug(f"Found description for day {day}: {description}")
+            return description
         else:
-            gunicorn_logger.error(f"Invalid day: {day}")
+            gunicorn_logger.error(f"Invalid day value: {day}, must be between 1 and 31")
             return "Could not calculate your cosmic code for this date."
-    except ValueError as e:
+    except (ValueError, TypeError) as e:
         gunicorn_logger.error(f"Error processing day {day}: {str(e)}")
         return "Could not calculate your cosmic code for this date."
 
@@ -125,6 +129,8 @@ def calculate():
         month = int(received_month)
         day = int(received_day)
         
+        gunicorn_logger.debug(f"Parsed inputs: year={year}, month={month}, day={day}")
+        
         if year < 1900 or year > 2025:
             error_msg = 'Year must be between 1900 and 2025'
             return jsonify({'error': error_msg}), 400
@@ -140,7 +146,13 @@ def calculate():
         except ValueError as e:
             error_msg = f'Invalid date: {str(e)}'
             gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg}), 400
+            return jsonify({
+                'error': error_msg,
+                'lunar_date': 'Unknown',
+                'bazi': 'Unknown',
+                'mystic_description': "Could not calculate your cosmic code for this date.",
+                'angle': 0
+            }), 400
 
         hour = None
         minute = None
@@ -167,11 +179,23 @@ def calculate():
             if not lunar:
                 error_msg = f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date"
                 gunicorn_logger.error(error_msg)
-                return jsonify({'error': error_msg}), 400
+                return jsonify({
+                    'error': error_msg,
+                    'lunar_date': 'Unknown',
+                    'bazi': 'Unknown',
+                    'mystic_description': "Could not calculate your cosmic code for this date.",
+                    'angle': 0
+                }), 400
         except Exception as e:
             error_msg = f"Lunar conversion failed for {year}-{month:02d}-{day:02d}: {str(e)}"
             gunicorn_logger.error(error_msg, exc_info=True)
-            return jsonify({'error': error_msg}), 400
+            return jsonify({
+                'error': error_msg,
+                'lunar_date': 'Unknown',
+                'bazi': 'Unknown',
+                'mystic_description': "Could not calculate your cosmic code for this date.",
+                'angle': 0
+            }), 400
         
         date_key = (year, month, day)
         if date_key in DATE_CORRECTIONS:
