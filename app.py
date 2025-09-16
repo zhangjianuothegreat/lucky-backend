@@ -93,9 +93,11 @@ def get_lunar_mansion(year, month, day):
     """根据公历日期返回对应的28星宿名称"""
     date_str = f"{year:04d}-{month:02d}-{day:02d}"
     try:
+        # 验证日期
         datetime(year, month, day)
         month_idx = month - 1
         day_idx = day - 1
+        
         # 检查月份天数
         if month in [4, 6, 9, 11] and day > 30:
             gunicorn_logger.error(f"Invalid day {day} for month {month}")
@@ -108,7 +110,17 @@ def get_lunar_mansion(year, month, day):
         if day_idx < 0 or day_idx > 30 or month_idx < 0 or month_idx > 11:
             gunicorn_logger.error(f"Out of range: month={month}, day={day}")
             return get_fallback_mansion(date_str)
+        
+        # 确保访问安全
+        if day_idx >= len(LUNAR_MANSIONS) or month_idx >= len(LUNAR_MANSIONS[0]):
+            gunicorn_logger.error(f"Index out of range: day_idx={day_idx}, month_idx={month_idx}")
+            return get_fallback_mansion(date_str)
+        
         mansion = LUNAR_MANSIONS[day_idx][month_idx]
+        if not mansion or mansion not in lunar_mansions_descriptions:
+            gunicorn_logger.error(f"Invalid mansion: {mansion}")
+            return get_fallback_mansion(date_str)
+        
         gunicorn_logger.debug(f"Date: {date_str}, Month: {month}, Day: {day}, Mansion: {mansion}")
         return mansion
     except Exception as e:
@@ -302,17 +314,9 @@ def calculate():
         gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
 
         lunar_mansion = get_lunar_mansion(year, month, day)
-        if not lunar_mansion:
-            error_msg = f"Could not determine lunar mansion for date {year}-{month:02d}-{day:02d}"
-            gunicorn_logger.error(error_msg)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': ' '.join(bazi),
-                'lunar_mansion': "Unknown",
-                'lunar_mansion_description': "Could not calculate lunar mansion for this date.",
-                'angle': 0
-            }), 400
+        if not lunar_mansion or lunar_mansion not in lunar_mansions_descriptions:
+            gunicorn_logger.error(f"Invalid lunar mansion: {lunar_mansion}, falling back")
+            lunar_mansion = get_fallback_mansion(f"{year:04d}-{month:02d}-{day:02d}")
         
         lunar_mansion_desc = lunar_mansions_descriptions.get(lunar_mansion, "No description available.")
         
