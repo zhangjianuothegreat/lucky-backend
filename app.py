@@ -269,6 +269,7 @@ def calculate():
         
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
+        joy_dir = joy_directions.get(element, {'joy': 'Unknown'})['joy']
         original_angle = joy_directions.get(element, {'angle': 0})['angle']
 
         try:
@@ -286,7 +287,8 @@ def calculate():
 
         gunicorn_logger.debug(
             f"/calculate result: day_master={heavenly_stems.get(day_master, 'Unknown')}, element={element}, "
-            f"original_angle={original_angle}, adjusted_angle={angle}, mystic_description={mystic_description}"
+            f"joy_direction={joy_dir}, original_angle={original_angle}, adjusted_angle={angle}, "
+            f"mystic_description={mystic_description}"
         )
 
         return jsonify({
