@@ -89,6 +89,18 @@ CONSTELLATION_TABLE = [
     ["危宿", "壁宿", "娄宿", "昴宿", "觜宿", "井宿", "柳宿", "张宿", "轸宿", "亢宿", "房宿", "尾宿"]
 ]
 
+def get_star_host(month, day):
+    """
+    根据农历月份和日期返回对应的二十八星宿英文名称。
+    :param month: 农历月份 (1-12)
+    :param day: 农历日期 (1-30)
+    :return: 星宿英文名称 或 "Invalid date"
+    """
+    if month < 1 or month > 12 or day < 1 or day > 30:
+        return "Invalid date"
+    chinese_host = CONSTELLATION_TABLE[day - 1][month - 1]  # 表格索引修正
+    return CONSTELLATION_TRANSLATIONS.get(chinese_host, "Unknown")
+
 # 特殊日期修正（临时解决方案）
 DATE_CORRECTIONS = {
     (1976, 12, 3): {'lunar_year': 1976, 'lunar_month': 11, 'lunar_day': 3}
@@ -212,18 +224,10 @@ def calculate():
             f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
         )
 
-        # 计算二十八星宿 - 修复索引问题
+        # 计算二十八星宿 - 使用新的get_star_host函数
         try:
-            # 确保日期在有效范围内
-            row_index = max(0, min(29, lunar_day - 1))  # 确保在0-29范围内
-            col_index = max(0, min(11, lunar_month - 1))  # 确保在0-11范围内
-            
-            chinese_host = CONSTELLATION_TABLE[row_index][col_index]
-            constellation = CONSTELLATION_TRANSLATIONS.get(chinese_host, 'Unknown')
-            gunicorn_logger.debug(f"Constellation found: {chinese_host} -> {constellation}")
-        except IndexError as e:
-            constellation = 'Unknown'
-            gunicorn_logger.error(f"IndexError in constellation table: {str(e)}, lunar_day={lunar_day}, lunar_month={lunar_month}, row={row_index}, col={col_index}")
+            constellation = get_star_host(lunar_month, lunar_day)
+            gunicorn_logger.debug(f"Constellation found: {constellation}")
         except Exception as e:
             constellation = 'Unknown'
             gunicorn_logger.error(f"Constellation calculation failed: {str(e)}")
