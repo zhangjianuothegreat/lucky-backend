@@ -29,77 +29,71 @@ earthly_branches_elements = {
     '午': 'Fire', '未': 'Earth', '申': 'Metal', '酉': 'Metal', '戌': 'Earth', '亥': 'Water'
 }
 joy_directions = {
-    'Wood': {'joy': 'North', 'base_angle': 0},
-    'Fire': {'joy': 'East', 'base_angle': 90},
-    'Earth': {'joy': 'South', 'base_angle': 180},
-    'Metal': {'joy': 'South', 'base_angle': 145},
-    'Water': {'joy': 'West', 'base_angle': 270}
-}
-direction_mapping = {
-    'North': 'North', 'East': 'East', 'South': 'South', 'West': 'West'
+    'Wood': {'base_angle': 0},
+    'Fire': {'base_angle': 90},
+    'Earth': {'base_angle': 180},
+    'Metal': {'base_angle': 145},
+    'Water': {'base_angle': 270}
 }
 mansion_personalities = [
-    "Natural-born leaders, charismatic and ambitious. They initiate projects and inspire others with their vision and drive.",
-    "Determined and resilient individuals. They are unwavering in their principles and possess great inner strength.",
-    "The foundational support. They are practical, stable, and provide security and grounding for their community.",
-    "Harmonious and diplomatic. They excel at building connections and creating a balanced, peaceful environment.",
-    "Wise and insightful. They possess deep emotional intelligence and are the moral core of any group.",
-    "Collaborative and flexible team players. They understand that success often comes from supporting the whole.",
-    "Expressive and popular communicators. They spread ideas, enthusiasm, and goodwill wherever they go.",
-    "Ambitious and transformative. They seek higher meaning and have the power to change their own destiny.",
-    "Patient, diligent, and reliable. They achieve their goals through persistent hard work and steadfastness.",
-    "Observant, meticulous, and creative. They have an eye for detail and beauty, crafting things with care.",
-    "Introspective and wise. They seek truth through contemplation and offer profound, thoughtful insights.",
-    "Cautious, prepared, and protective. They anticipate challenges and safeguard others from harm.",
-    "Resourceful and adventurous. They are natural explorers who build communities and find opportunity.",
-    "Scholarly, knowledgeable, and preservers of culture. They protect and share valuable information and traditions.",
-    "Innovative and compassionate thinkers. They devise generous solutions and walk their talk to help others.",
-    "Unifying and generous. They gather people together and provide for them with a warm and open heart.",
-    "Nurturing and prosperous. They have a talent for accumulating and sharing resources to foster growth.",
-    "Charismatic and influential. They are natural stars who lead with confidence and shine brightly.",
-    "Organized and successful achievers. They are methodical in reaching their goals and reaping the rewards.",
-    "Perceptive and cautious advisors. They wisely assess situations before offering valuable counsel.",
-    "Sharp, analytical, and perceptive. They excel at distinguishing truth from falsehood with clarity.",
-    "Caring and community-focused. They provide the essential emotional and practical sustenance for their group.",
-    "Intuitive, empathetic, and insightful. They understand hidden matters and offer deep compassion.",
-    "Adaptable and graceful under pressure. They bend without breaking and manage situations with elegance.",
-    "Optimistic and bright. They spread hope, enthusiasm, and a sense of sparkling creativity.",
-    "Expansive and generous. They widen their influence to embrace and care for others.",
-    "Imaginative, free-spirited, and inspired. They travel far and wide, both in mind and body, bringing new ideas.",
-    "Compassionate healers and problem-solvers. They bear the burdens of others and help them move forward."
+    "Charismatic leaders who ignite projects with vision and drive.",
+    "Resilient souls with unwavering strength and principles.",
+    "Stable anchors providing security and grounding.",
+    "Harmonious diplomats creating balanced environments.",
+    "Wise hearts with deep emotional intelligence.",
+    "Collaborative team players thriving in unity.",
+    "Expressive communicators spreading enthusiasm.",
+    "Transformative seekers of higher meaning.",
+    "Diligent workers achieving goals through persistence.",
+    "Creative observers crafting beauty with care.",
+    "Introspective sages offering profound insights.",
+    "Cautious protectors anticipating challenges.",
+    "Adventurous explorers building communities.",
+    "Scholarly keepers of culture and tradition.",
+    "Innovative thinkers devising generous solutions.",
+    "Generous unifiers providing warmth and support.",
+    "Prosperous nurturers fostering growth.",
+    "Confident stars leading with charisma.",
+    "Methodical achievers reaping rewards.",
+    "Perceptive advisors assessing with clarity.",
+    "Analytical minds distinguishing truth.",
+    "Caring providers of emotional sustenance.",
+    "Empathetic intuitives understanding hidden truths.",
+    "Graceful adapters managing with elegance.",
+    "Optimistic creators spreading hope.",
+    "Expansive visionaries embracing others.",
+    "Free-spirited innovators bringing new ideas.",
+    "Compassionate healers helping others forward."
 ]
 mystic_descriptions = {
-    1: "The spark of unity, igniting your unique path to boundless creation and singular purpose.",
-    2: "The dance of duality, harmonizing your heart and mind to forge meaningful connections.",
-    3: "The triad of creativity, weaving inspiration into actions that shape your vibrant destiny.",
-    4: "The foundation of stability, grounding your dreams in a fortress of unwavering resolve.",
-    5: "The pulse of adventure, propelling you toward discoveries that awaken your inner explorer.",
-    6: "The embrace of harmony, nurturing love and balance in your soul’s radiant journey.",
-    7: "The whisper of intuition, guiding you through mysteries to uncover profound truths.",
-    8: "The cycle of abundance, channeling infinite energy to manifest your greatest aspirations.",
-    9: "The beacon of wisdom, illuminating your path with compassion and universal understanding.",
-    10: "The circle of completion, empowering you to fulfill your purpose with bold confidence.",
-    11: "The gateway of enlightenment, opening your spirit to visions of higher consciousness.",
-    12: "The rhythm of growth, aligning your steps with the universe’s eternal flow.",
-    13: "The flame of transformation, sparking renewal to elevate your soul’s potential.",
-    14: "The bridge of connection, uniting your heart with allies on a shared mission.",
-    15: "The surge of courage, emboldening you to conquer fears and seize opportunities.",
-    16: "The pillar of resilience, anchoring your strength to overcome life’s greatest trials.",
-    17: "The star of clarity, shining light on your purpose with unwavering focus.",
-    18: "The tide of vitality, flooding your spirit with energy to thrive and create.",
-    19: "The dawn of inspiration, awakening your soul to bold ideas and grand visions.",
-    20: "The shield of protection, guarding your dreams with unyielding cosmic support.",
-    21: "The spark of innovation, igniting your mind to pioneer new paths forward.",
-    22: "The architect of destiny, building your legacy with precision and purpose.",
-    23: "The pulse of freedom, liberating your spirit to soar to new heights.",
-    24: "The wellspring of joy, nourishing your soul with endless positivity and grace.",
-    25: "The thread of opportunity, weaving luck and success into your journey.",
-    26: "The flame of passion, fueling your heart to pursue dreams with fervor.",
-    27: "The mirror of truth, reflecting your inner strength and authentic purpose.",
-    28: "The current of progress, carrying you swiftly toward your highest goals.",
-    29: "The whisper of eternity, guiding you to embrace your timeless mission.",
-    30: "The crown of fulfillment, honoring your journey with wisdom and triumph.",
-    31: "The light of transcendence, elevating your soul to embrace infinite possibilities."
+    1: "A spark of unity ignites your unique path to creation.",
+    2: "Duality’s dance harmonizes your heart and mind.",
+    3: "Creativity’s triad weaves inspiration into action.",
+    4: "Stability’s foundation grounds your dreams.",
+    5: "Adventure’s pulse propels you to discoveries.",
+    6: "Harmony’s embrace nurtures love and balance.",
+    7: "Intuition’s whisper guides you to profound truths.",
+    8: "Abundance’s cycle manifests your aspirations.",
+    9: "Wisdom’s beacon illuminates your path.",
+    10: "Completion’s circle empowers your purpose.",
+    11: "Enlightenment’s gateway opens your spirit.",
+    12: "Growth’s rhythm aligns you with the universe.",
+    13: "Transformation’s flame sparks renewal.",
+    14: "Connection’s bridge unites you with allies.",
+    15: "Courage’s surge emboldens your opportunities.",
+    16: "Resilience’s pillar anchors your strength.",
+    17: "Clarity’s star shines on your purpose.",
+    18: "Vitality’s tide floods your spirit with energy.",
+    19: "Inspiration’s dawn awakens bold visions.",
+    20: "Protection’s shield guards your dreams.",
+    21: "Innovation’s spark ignites new paths.",
+    22: "Destiny’s architect builds your legacy.",
+    23: "Freedom’s pulse liberates your spirit.",
+    24: "Joy’s wellspring nourishes your soul.",
+    25: "Opportunity’s thread weaves luck and success.",
+    26: "Passion’s flame fuels your dreams.",
+    27: "Truth’s mirror reflects your strength.",
+    28: "Progress’s current carries you to your goals."
 }
 
 # 健康检查端点
@@ -111,36 +105,31 @@ def health():
 def get_mystic_description(day):
     try:
         day = int(day)
-        return mystic_descriptions.get(day, "No cosmic message for this day.")
+        return mystic_descriptions.get(day, "A cosmic whisper guides your journey.")
     except (ValueError, TypeError):
-        return "Could not retrieve cosmic message."
+        return "A cosmic whisper guides your journey."
 
 def get_element_interaction(gan, zhi):
     gan_element = five_elements.get(gan, 'Unknown')
     zhi_element = earthly_branches_elements.get(zhi, 'Unknown')
     if gan_element == 'Unknown' or zhi_element == 'Unknown':
-        return f"{heavenly_stems[gan]}{earthly_branches[zhi]} (Unknown)"
-    return f"{heavenly_stems[gan]}{earthly_branches[zhi]} ({gan_element} meets {zhi_element})"
+        return f"{heavenly_stems[gan]}{earthly_branches[zhi]}"
+    return f"{heavenly_stems[gan]}{earthly_branches[zhi]}: {gan_element} meets {zhi_element}"
 
 @app.route('/calculate', methods=['GET'])
 def calculate():
-    # 获取参数
     params = {
         'year': request.args.get('year'),
         'month': request.args.get('month'),
         'day': request.args.get('day'),
-        'hour': request.args.get('hour'),
-        'minute': request.args.get('minute'),
-        'timezone': request.args.get('timezone', '8')
+        'timezone': request.args.get('timezone', 8.0)
     }
     gunicorn_logger.debug(f"Received params: {params}")
 
     try:
-        # 参数验证
         if not all([params['year'], params['month'], params['day']]):
-            return jsonify({'error': 'Year, month and day are required'}), 400
+            return jsonify({'error': 'Year, month, and day are required'}), 400
 
-        # 基础日期验证
         year = int(params['year'])
         month = int(params['month'])
         day = int(params['day'])
@@ -155,46 +144,33 @@ def calculate():
         except ValueError:
             return jsonify({'error': 'Invalid date (e.g., February 30 is invalid)'}), 400
 
-        # 时间验证
-        hour = int(params['hour']) if params['hour'] else None
-        minute = int(params['minute']) if params['minute'] else None
-        if hour is not None and (hour < 0 or hour > 23):
-            return jsonify({'error': 'Hour must be 0-23'}), 400
-        if minute is not None and (minute < 0 or minute > 59):
-            return jsonify({'error': 'Minute must be 0-59'}), 400
-
-        # 农历转换
         solar = Solar.fromYmd(year, month, day)
         lunar = solar.getLunar()
         if not lunar:
             return jsonify({'error': 'Failed to convert to lunar calendar'}), 400
 
-        # 28星宿计算（性格描述）
         lunar_day = lunar.getDay()
         mansion_index = (lunar_day - 1) % 28
         personality = mansion_personalities[mansion_index]
 
-        # 八字计算
         ba = lunar.getEightChar()
         if not ba:
-            return jsonify({'error': 'Failed to calculate Bazi'}), 400
+            return jsonify({'error': 'Failed to calculate Cosmic Blueprint'}), 400
         gans = [ba.getYearGan(), ba.getMonthGan(), ba.getDayGan()]
         zhis = [ba.getYearZhi(), ba.getMonthZhi(), ba.getDayZhi()]
         for g, z in zip(gans, zhis):
             if not g or not z:
-                return jsonify({'error': 'Invalid Bazi components'}), 400
+                return jsonify({'error': 'Invalid Cosmic Blueprint components'}), 400
         bazi_interactions = [get_element_interaction(g, z) for g, z in zip(gans, zhis)]
 
-        # 方向计算（融合动态偏移+时区调整）
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
         if element == 'Unknown':
             return jsonify({'error': 'Failed to determine element'}), 400
-        
+
         base_angle = joy_directions[element]['base_angle']
-        dynamic_offset = random.randint(-10, 10)  # grok的动态偏移
+        dynamic_offset = random.randint(-10, 10)
         try:
-            # 原版本的时区调整
             benchmark_offset = 8.0
             user_offset = float(params['timezone'])
             diff_hours = user_offset - benchmark_offset
@@ -203,16 +179,13 @@ def calculate():
         except:
             angle = (base_angle + dynamic_offset) % 360
 
-        # 宇宙密码（原版本）
         mystic_desc = get_mystic_description(day)
 
         return jsonify({
             'solar_date': f"{year}-{month:02d}-{day:02d}",
-            'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi': ', '.join(bazi_interactions),
             'personality': personality,
             'mystic_description': mystic_desc,
-            'joy_direction': direction_mapping[joy_directions[element]['joy']],
             'angle': round(angle, 2)
         })
 
