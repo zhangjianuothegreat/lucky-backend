@@ -24,6 +24,10 @@ five_elements = {
     '甲': 'Wood', '乙': 'Wood', '丙': 'Fire', '丁': 'Fire', '戊': 'Earth',
     '己': 'Earth', '庚': 'Metal', '辛': 'Metal', '壬': 'Water', '癸': 'Water'
 }
+earthly_branches_elements = {
+    '子': 'Water', '丑': 'Earth', '寅': 'Wood', '卯': 'Wood', '辰': 'Earth', '巳': 'Fire',
+    '午': 'Fire', '未': 'Earth', '申': 'Metal', '酉': 'Metal', '戌': 'Earth', '亥': 'Water'
+}
 joy_directions = {
     'Wood': {'joy': 'North', 'base_angle': 0},
     'Fire': {'joy': 'East', 'base_angle': 90},
@@ -34,11 +38,35 @@ joy_directions = {
 direction_mapping = {
     'North': 'North', 'East': 'East', 'South': 'South', 'West': 'West'
 }
-lunar_mansions = [
-    "角木蛟", "亢金龙", "氐土貉", "房日兔", "心月狐", "尾火虎", "箕水豹",
-    "斗木獬", "牛金牛", "女土蝠", "虚日鼠", "危月燕", "室火猪", "壁水貐",
-    "奎木狼", "娄金狗", "胃土雉", "昴日鸡", "毕月乌", "觜火猴", "参水猿",
-    "井木犴", "鬼金羊", "柳土獐", "星日马", "张月鹿", "翼火蛇", "轸水蚓"
+mansion_personalities = [
+    "Natural-born leaders, charismatic and ambitious. They initiate projects and inspire others with their vision and drive.",
+    "Determined and resilient individuals. They are unwavering in their principles and possess great inner strength.",
+    "The foundational support. They are practical, stable, and provide security and grounding for their community.",
+    "Harmonious and diplomatic. They excel at building connections and creating a balanced, peaceful environment.",
+    "Wise and insightful. They possess deep emotional intelligence and are the moral core of any group.",
+    "Collaborative and flexible team players. They understand that success often comes from supporting the whole.",
+    "Expressive and popular communicators. They spread ideas, enthusiasm, and goodwill wherever they go.",
+    "Ambitious and transformative. They seek higher meaning and have the power to change their own destiny.",
+    "Patient, diligent, and reliable. They achieve their goals through persistent hard work and steadfastness.",
+    "Observant, meticulous, and creative. They have an eye for detail and beauty, crafting things with care.",
+    "Introspective and wise. They seek truth through contemplation and offer profound, thoughtful insights.",
+    "Cautious, prepared, and protective. They anticipate challenges and safeguard others from harm.",
+    "Resourceful and adventurous. They are natural explorers who build communities and find opportunity.",
+    "Scholarly, knowledgeable, and preservers of culture. They protect and share valuable information and traditions.",
+    "Innovative and compassionate thinkers. They devise generous solutions and walk their talk to help others.",
+    "Unifying and generous. They gather people together and provide for them with a warm and open heart.",
+    "Nurturing and prosperous. They have a talent for accumulating and sharing resources to foster growth.",
+    "Charismatic and influential. They are natural stars who lead with confidence and shine brightly.",
+    "Organized and successful achievers. They are methodical in reaching their goals and reaping the rewards.",
+    "Perceptive and cautious advisors. They wisely assess situations before offering valuable counsel.",
+    "Sharp, analytical, and perceptive. They excel at distinguishing truth from falsehood with clarity.",
+    "Caring and community-focused. They provide the essential emotional and practical sustenance for their group.",
+    "Intuitive, empathetic, and insightful. They understand hidden matters and offer deep compassion.",
+    "Adaptable and graceful under pressure. They bend without breaking and manage situations with elegance.",
+    "Optimistic and bright. They spread hope, enthusiasm, and a sense of sparkling creativity.",
+    "Expansive and generous. They widen their influence to embrace and care for others.",
+    "Imaginative, free-spirited, and inspired. They travel far and wide, both in mind and body, bringing new ideas.",
+    "Compassionate healers and problem-solvers. They bear the burdens of others and help them move forward."
 ]
 mystic_descriptions = {
     1: "The spark of unity, igniting your unique path to boundless creation and singular purpose.",
@@ -87,6 +115,13 @@ def get_mystic_description(day):
     except (ValueError, TypeError):
         return "Could not retrieve cosmic message."
 
+def get_element_interaction(gan, zhi):
+    gan_element = five_elements.get(gan, 'Unknown')
+    zhi_element = earthly_branches_elements.get(zhi, 'Unknown')
+    if gan_element == 'Unknown' or zhi_element == 'Unknown':
+        return f"{heavenly_stems[gan]}{earthly_branches[zhi]} (Unknown)"
+    return f"{heavenly_stems[gan]}{earthly_branches[zhi]} ({gan_element} meets {zhi_element})"
+
 @app.route('/calculate', methods=['GET'])
 def calculate():
     # 获取参数
@@ -134,10 +169,10 @@ def calculate():
         if not lunar:
             return jsonify({'error': 'Failed to convert to lunar calendar'}), 400
 
-        # 28星宿计算（来自grok版本）
+        # 28星宿计算（性格描述）
         lunar_day = lunar.getDay()
         mansion_index = (lunar_day - 1) % 28
-        mansion = lunar_mansions[mansion_index]
+        personality = mansion_personalities[mansion_index]
 
         # 八字计算
         ba = lunar.getEightChar()
@@ -148,7 +183,7 @@ def calculate():
         for g, z in zip(gans, zhis):
             if not g or not z:
                 return jsonify({'error': 'Invalid Bazi components'}), 400
-        bazi = [f"{heavenly_stems[g]}{earthly_branches[z]}" for g, z in zip(gans, zhis)]
+        bazi_interactions = [get_element_interaction(g, z) for g, z in zip(gans, zhis)]
 
         # 方向计算（融合动态偏移+时区调整）
         day_master = gans[2]
@@ -172,9 +207,10 @@ def calculate():
         mystic_desc = get_mystic_description(day)
 
         return jsonify({
+            'solar_date': f"{year}-{month:02d}-{day:02d}",
             'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
-            'bazi': ' '.join(bazi),
-            'mansion': mansion,  # 28星宿放在八字和宇宙密码之间
+            'bazi': ', '.join(bazi_interactions),
+            'personality': personality,
             'mystic_description': mystic_desc,
             'joy_direction': direction_mapping[joy_directions[element]['joy']],
             'angle': round(angle, 2)
