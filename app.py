@@ -28,7 +28,7 @@ joy_directions = {
     'Wood': {'joy': 'North', 'base_angle': 0},
     'Fire': {'joy': 'East', 'base_angle': 90},
     'Earth': {'joy': 'South', 'base_angle': 180},
-    'Metal': {'joy': 'South', 'base_angle': 180},
+    'Metal': {'joy': 'South', 'base_angle': 145},
     'Water': {'joy': 'West', 'base_angle': 270}
 }
 direction_mapping = {
