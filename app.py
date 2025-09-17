@@ -1,8 +1,5 @@
 import logging
-logging.basicConfig(level=logging.DEBUG)
-gunicorn_logger = logging.getLogger('gunicorn')
-gunicorn_logger.setLevel(logging.DEBUG)
-
+import random
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from lunar_python import Solar, Lunar
@@ -10,8 +7,39 @@ from datetime import datetime
 
 app = Flask(__name__)
 CORS(app)
+logging.basicConfig(level=logging.DEBUG)
+gunicorn_logger = logging.getLogger('gunicorn')
+gunicorn_logger.setLevel(logging.DEBUG)
 
-# 神秘描述字典
+# 基础数据
+heavenly_stems = {
+    '甲': 'Jia', '乙': 'Yi', '丙': 'Bing', '丁': 'Ding', '戊': 'Wu',
+    '己': 'Ji', '庚': 'Geng', '辛': 'Xin', '壬': 'Ren', '癸': 'Gui'
+}
+earthly_branches = {
+    '子': 'Zi', '丑': 'Chou', '寅': 'Yin', '卯': 'Mao', '辰': 'Chen', '巳': 'Si',
+    '午': 'Wu', '未': 'Wei', '申': 'Shen', '酉': 'You', '戌': 'Xu', '亥': 'Hai'
+}
+five_elements = {
+    '甲': 'Wood', '乙': 'Wood', '丙': 'Fire', '丁': 'Fire', '戊': 'Earth',
+    '己': 'Earth', '庚': 'Metal', '辛': 'Metal', '壬': 'Water', '癸': 'Water'
+}
+joy_directions = {
+    'Wood': {'joy': 'North', 'base_angle': 0},
+    'Fire': {'joy': 'East', 'base_angle': 90},
+    'Earth': {'joy': 'South', 'base_angle': 180},
+    'Metal': {'joy': 'South', 'base_angle': 180},
+    'Water': {'joy': 'West', 'base_angle': 270}
+}
+direction_mapping = {
+    'North': 'North', 'East': 'East', 'South': 'South', 'West': 'West'
+}
+lunar_mansions = [
+    "角木蛟", "亢金龙", "氐土貉", "房日兔", "心月狐", "尾火虎", "箕水豹",
+    "斗木獬", "牛金牛", "女土蝠", "虚日鼠", "危月燕", "室火猪", "壁水貐",
+    "奎木狼", "娄金狗", "胃土雉", "昴日鸡", "毕月乌", "觜火猴", "参水猿",
+    "井木犴", "鬼金羊", "柳土獐", "星日马", "张月鹿", "翼火蛇", "轸水蚓"
+]
 mystic_descriptions = {
     1: "The spark of unity, igniting your unique path to boundless creation and singular purpose.",
     2: "The dance of duality, harmonizing your heart and mind to forge meaningful connections.",
@@ -46,268 +74,116 @@ mystic_descriptions = {
     31: "The light of transcendence, elevating your soul to embrace infinite possibilities."
 }
 
-def get_mystic_description(day):
-    """根据日期的'日'返回对应的神秘描述"""
-    gunicorn_logger.debug(f"Processing day: {day}, type: {type(day)}")
-    try:
-        day = int(day)
-        gunicorn_logger.debug(f"Converted day to int: {day}")
-        if 1 <= day <= 31:
-            description = mystic_descriptions.get(day, "No description available for this day.")
-            gunicorn_logger.debug(f"Found description for day {day}: {description}")
-            return description
-        else:
-            gunicorn_logger.error(f"Invalid day value: {day}, must be between 1 and 31")
-            return "Could not calculate your cosmic code for this date."
-    except (ValueError, TypeError) as e:
-        gunicorn_logger.error(f"Error processing day {day}: {str(e)}")
-        return "Could not calculate your cosmic code for this date."
-
 # 健康检查端点
 @app.route('/health', methods=['GET'])
 def health():
     gunicorn_logger.debug('Health check accessed')
     return jsonify({'status': 'ok'}), 200
 
-# Heavenly Stems (English mapping)
-heavenly_stems = {
-    '甲': 'Jia', '乙': 'Yi', '丙': 'Bing', '丁': 'Ding', 
-    '戊': 'Wu', '己': 'Ji', '庚': 'Geng', '辛': 'Xin', 
-    '壬': 'Ren', '癸': 'Gui'
-}
+def get_mystic_description(day):
+    try:
+        day = int(day)
+        return mystic_descriptions.get(day, "No cosmic message for this day.")
+    except (ValueError, TypeError):
+        return "Could not retrieve cosmic message."
 
-# Earthly Branches (English mapping)
-earthly_branches = {
-    '子': 'Zi', '丑': 'Chou', '寅': 'Yin', '卯': 'Mao', 
-    '辰': 'Chen', '巳': 'Si', '午': 'Wu', '未': 'Wei', 
-    '申': 'Shen', '酉': 'You', '戌': 'Xu', '亥': 'Hai'
-}
-
-# Five Elements mapping for stems
-five_elements = {
-    '甲': 'Wood', '乙': 'Wood', '丙': 'Fire', '丁': 'Fire', 
-    '戊': 'Earth', '己': 'Earth', '庚': 'Metal', '辛': 'Metal', 
-    '壬': 'Water', '癸': 'Water'
-}
-
-# Joy Directions based on Five Elements with angles
-joy_directions = {
-    'Wood': {'joy': 'North (Water)', 'angle': 0},
-    'Fire': {'joy': 'East (Wood)', 'angle': 90},
-    'Earth': {'joy': 'South (Fire)', 'angle': 180},
-    'Metal': {'joy': 'South (Earth)', 'angle': 145},
-    'Water': {'joy': 'West (Metal)', 'angle': 270}
-}
-
-# 特殊日期修正（临时解决方案）
-DATE_CORRECTIONS = {
-    (1976, 12, 3): {'lunar_year': 1976, 'lunar_month': 11, 'lunar_day': 3}
-}
-
-# 八字计算端点
 @app.route('/calculate', methods=['GET'])
 def calculate():
-    received_year = request.args.get('year')
-    received_month = request.args.get('month')
-    received_day = request.args.get('day')
-    received_hour = request.args.get('hour')
-    received_minute = request.args.get('minute')
-    received_timezone = request.args.get('timezone', '8')
-    
-    gunicorn_logger.debug(
-        f"Received GET /calculate with params: year={received_year}, month={received_month}, day={received_day}, "
-        f"hour={received_hour}, minute={received_minute}, timezone={received_timezone}"
-    )
+    # 获取参数
+    params = {
+        'year': request.args.get('year'),
+        'month': request.args.get('month'),
+        'day': request.args.get('day'),
+        'hour': request.args.get('hour'),
+        'minute': request.args.get('minute'),
+        'timezone': request.args.get('timezone', '8')
+    }
+    gunicorn_logger.debug(f"Received params: {params}")
 
     try:
-        if not (received_year and received_month and received_day):
-            error_msg = 'Missing required parameters: year, month, or day cannot be empty'
-            gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({'error': error_msg}), 400
-        
-        year = int(received_year)
-        month = int(received_month)
-        day = int(received_day)
-        
-        gunicorn_logger.debug(f"Parsed inputs: year={year}, month={month}, day={day}")
-        
-        if year < 1900 or year > 2025:
-            error_msg = 'Year must be between 1900 and 2025'
-            return jsonify({'error': error_msg}), 400
-        if month < 1 or month > 12:
-            error_msg = 'Month must be between 1 and 12'
-            return jsonify({'error': error_msg}), 400
-        if day < 1 or day > 31:
-            error_msg = 'Day must be between 1 and 31'
-            return jsonify({'error': error_msg}), 400
+        # 参数验证
+        if not all([params['year'], params['month'], params['day']]):
+            return jsonify({'error': 'Year, month and day are required'}), 400
 
+        # 基础日期验证
+        year = int(params['year'])
+        month = int(params['month'])
+        day = int(params['day'])
+        if year < 1900 or year > 2025:
+            return jsonify({'error': 'Year must be 1900-2025'}), 400
+        if month < 1 or month > 12:
+            return jsonify({'error': 'Month must be 1-12'}), 400
+        if day < 1 or day > 31:
+            return jsonify({'error': 'Day must be 1-31'}), 400
         try:
             datetime(year, month, day)
-        except ValueError as e:
-            error_msg = f'Invalid date: {str(e)}'
-            gunicorn_logger.debug(f"/calculate parameter error: {error_msg}")
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': 'Unknown',
-                'bazi': 'Unknown',
-                'mystic_description': "Could not calculate your cosmic code for this date.",
-                'angle': 0
-            }), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid date (e.g., February 30 is invalid)'}), 400
 
-        hour = None
-        minute = None
-        if received_hour:
-            try:
-                hour = int(received_hour)
-                if hour < 0 or hour > 23:
-                    raise ValueError("Hour out of range 0-23")
-            except ValueError as e:
-                error_msg = f'Invalid hour: {str(e)}'
-                return jsonify({'error': error_msg}), 400
-        if received_minute:
-            try:
-                minute = int(received_minute)
-                if minute < 0 or minute > 59:
-                    raise ValueError("Minute out of range 0-59")
-            except ValueError as e:
-                error_msg = f'Invalid minute: {str(e)}'
-                return jsonify({'error': error_msg}), 400
+        # 时间验证
+        hour = int(params['hour']) if params['hour'] else None
+        minute = int(params['minute']) if params['minute'] else None
+        if hour is not None and (hour < 0 or hour > 23):
+            return jsonify({'error': 'Hour must be 0-23'}), 400
+        if minute is not None and (minute < 0 or minute > 59):
+            return jsonify({'error': 'Minute must be 0-59'}), 400
 
-        try:
-            solar = Solar.fromYmd(year, month, day)
-            lunar = solar.getLunar()
-            if not lunar:
-                error_msg = f"Failed to convert solar date {year}-{month:02d}-{day:02d} to lunar date"
-                gunicorn_logger.error(error_msg)
-                return jsonify({
-                    'error': error_msg,
-                    'lunar_date': 'Unknown',
-                    'bazi': 'Unknown',
-                    'mystic_description': "Could not calculate your cosmic code for this date.",
-                    'angle': 0
-                }), 400
-        except Exception as e:
-            error_msg = f"Lunar conversion failed for {year}-{month:02d}-{day:02d}: {str(e)}"
-            gunicorn_logger.error(error_msg, exc_info=True)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': 'Unknown',
-                'bazi': 'Unknown',
-                'mystic_description': "Could not calculate your cosmic code for this date.",
-                'angle': 0
-            }), 400
-        
-        date_key = (year, month, day)
-        if date_key in DATE_CORRECTIONS:
-            lunar_year = DATE_CORRECTIONS[date_key]['lunar_year']
-            lunar_month = DATE_CORRECTIONS[date_key]['lunar_month']
-            lunar_day = DATE_CORRECTIONS[date_key]['lunar_day']
-            gunicorn_logger.debug(f"Applied lunar date correction: {lunar_year}-{lunar_month:02d}-{lunar_day:02d}")
-        else:
-            lunar_year = lunar.getYear()
-            lunar_month = lunar.getMonth()
-            lunar_day = lunar.getDay()
-        
-        if not isinstance(lunar_day, int) or lunar_day < 1 or lunar_day > 31:
-            error_msg = f"Invalid lunar day {lunar_day} for date {year}-{month:02d}-{day:02d}"
-            gunicorn_logger.error(error_msg)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': 'Unknown',
-                'mystic_description': "Could not calculate your cosmic code for this date.",
-                'angle': 0
-            }), 400
-        
-        gunicorn_logger.debug(
-            f"/calculate solar to lunar success: solar={year}-{month:02d}-{day:02d}, "
-            f"lunar={lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
-        )
+        # 农历转换
+        solar = Solar.fromYmd(year, month, day)
+        lunar = solar.getLunar()
+        if not lunar:
+            return jsonify({'error': 'Failed to convert to lunar calendar'}), 400
 
-        try:
-            ba = lunar.getEightChar()
-            if not ba:
-                error_msg = f"Failed to get Eight Characters (BaZi) for lunar date {lunar_year}-{lunar_month:02d}-{lunar_day:02d}"
-                gunicorn_logger.error(error_msg)
-                return jsonify({
-                    'error': error_msg,
-                    'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                    'bazi': 'Unknown',
-                    'mystic_description': "Could not calculate your cosmic code for this date.",
-                    'angle': 0
-                }), 400
-        except Exception as e:
-            error_msg = f"BaZi calculation failed for {year}-{month:02d}-{day:02d}: {str(e)}"
-            gunicorn_logger.error(error_msg, exc_info=True)
-            return jsonify({
-                'error': error_msg,
-                'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                'bazi': 'Unknown',
-                'mystic_description': "Could not calculate your cosmic code for this date.",
-                'angle': 0
-            }), 400
-        
+        # 28星宿计算（来自grok版本）
+        lunar_day = lunar.getDay()
+        mansion_index = (lunar_day - 1) % 28
+        mansion = lunar_mansions[mansion_index]
+
+        # 八字计算
+        ba = lunar.getEightChar()
+        if not ba:
+            return jsonify({'error': 'Failed to calculate Bazi'}), 400
         gans = [ba.getYearGan(), ba.getMonthGan(), ba.getDayGan()]
         zhis = [ba.getYearZhi(), ba.getMonthZhi(), ba.getDayZhi()]
-        
-        for i, (gan, zhi) in enumerate(zip(gans, zhis)):
-            if not gan or not zhi:
-                error_msg = f"Invalid BaZi component at index {i}: gan={gan}, zhi={zhi}"
-                gunicorn_logger.error(error_msg)
-                return jsonify({
-                    'error': error_msg,
-                    'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
-                    'bazi': 'Unknown',
-                    'mystic_description': "Could not calculate your cosmic code for this date.",
-                    'angle': 0
-                }), 400
-        
-        bazi = [f"{heavenly_stems.get(gan, 'Unknown')}{earthly_branches.get(zhi, 'Unknown')}" for gan, zhi in zip(gans, zhis)]
-        gunicorn_logger.debug(f"/calculate BaZi generated: {', '.join(bazi)}")
+        for g, z in zip(gans, zhis):
+            if not g or not z:
+                return jsonify({'error': 'Invalid Bazi components'}), 400
+        bazi = [f"{heavenly_stems[g]}{earthly_branches[z]}" for g, z in zip(gans, zhis)]
 
-        mystic_description = get_mystic_description(day)
-        
+        # 方向计算（融合动态偏移+时区调整）
         day_master = gans[2]
         element = five_elements.get(day_master, 'Unknown')
-        joy_dir = joy_directions.get(element, {'joy': 'Unknown'})['joy']
-        original_angle = joy_directions.get(element, {'angle': 0})['angle']
-
+        if element == 'Unknown':
+            return jsonify({'error': 'Failed to determine element'}), 400
+        
+        base_angle = joy_directions[element]['base_angle']
+        dynamic_offset = random.randint(-10, 10)  # grok的动态偏移
         try:
+            # 原版本的时区调整
             benchmark_offset = 8.0
-            user_offset = float(received_timezone)
+            user_offset = float(params['timezone'])
             diff_hours = user_offset - benchmark_offset
-            adjustment = diff_hours * 15
-            angle = round(original_angle + adjustment, 2)
-            angle = angle % 360
-            if angle < 0:
-                angle += 360
-        except Exception as e:
-            gunicorn_logger.error(f"Timezone adjustment failed: {str(e)}")
-            angle = original_angle
+            timezone_adjustment = diff_hours * 15
+            angle = (base_angle + dynamic_offset + timezone_adjustment) % 360
+        except:
+            angle = (base_angle + dynamic_offset) % 360
 
-        gunicorn_logger.debug(
-            f"/calculate result: day_master={heavenly_stems.get(day_master, 'Unknown')}, element={element}, "
-            f"joy_direction={joy_dir}, original_angle={original_angle}, adjusted_angle={angle}, "
-            f"mystic_description={mystic_description}"
-        )
+        # 宇宙密码（原版本）
+        mystic_desc = get_mystic_description(day)
 
         return jsonify({
-            'lunar_date': f"{lunar_year}-{lunar_month:02d}-{lunar_day:02d}",
+            'lunar_date': f"{lunar.getYear()}-{lunar.getMonth():02d}-{lunar.getDay():02d}",
             'bazi': ' '.join(bazi),
-            'mystic_description': mystic_description,
-            'angle': angle
+            'mansion': mansion,  # 28星宿放在八字和宇宙密码之间
+            'mystic_description': mystic_desc,
+            'joy_direction': direction_mapping[joy_directions[element]['joy']],
+            'angle': round(angle, 2)
         })
 
     except Exception as e:
-        error_msg = f'Calculation failed for {year}-{month:02d}-{day:02d}: {str(e)}'
-        gunicorn_logger.error(f"/calculate error occurred: {error_msg}", exc_info=True)
-        return jsonify({
-            'error': error_msg,
-            'lunar_date': 'Unknown',
-            'bazi': 'Unknown',
-            'mystic_description': "Could not calculate your cosmic code for this date.",
-            'angle': 0
-        }), 400
+        error_msg = f'Calculation failed: {str(e)}'
+        gunicorn_logger.error(error_msg)
+        return jsonify({'error': error_msg}), 400
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=8080)
