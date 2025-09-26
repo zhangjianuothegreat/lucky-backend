@@ -6,7 +6,7 @@ from lunar_python import Solar, Lunar
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)
+CORS(app, origins=["https://zhangjianuothegreat.github.io", "https://www.yourluckycompass.com"])
 logging.basicConfig(level=logging.DEBUG)
 gunicorn_logger = logging.getLogger('gunicorn')
 gunicorn_logger.setLevel(logging.DEBUG)
